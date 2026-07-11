@@ -14,7 +14,7 @@ from sentinel.reports import profiles as build_sentence_profiles
 from sentinel.reports import backlog as build_template_backlog
 from sentinel import consistency as consistency_index
 from sentinel.audit import draft as draft_audit
-import plan_draft_alignment
+from sentinel.lib import alignment as plan_draft_alignment
 from sentinel.lib.analysis import analyze_files, build_corpus_profile_for_files
 from sentinel.lib.io import write_text
 

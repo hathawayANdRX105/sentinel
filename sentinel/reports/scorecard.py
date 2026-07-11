@@ -10,7 +10,7 @@ from pathlib import Path
 from sentinel.stats import draft as build_draft_stats
 from sentinel import consistency as consistency_index
 from sentinel.audit import draft as draft_audit
-import plan_draft_alignment
+from sentinel.lib import alignment as plan_draft_alignment
 from sentinel.lib.analysis import analyze_files, build_corpus_profile_for_files
 from sentinel.lib.io import write_text
 from sentinel.lib.paths import chapter_sort_key, collect_chapter_files, novel_dir_for_draft

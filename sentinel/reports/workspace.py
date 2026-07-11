@@ -8,7 +8,7 @@ import collections
 import re
 from pathlib import Path
 
-import build_concept_stats
+from sentinel.stats import concept as build_concept_stats
 from sentinel import consistency as consistency_index
 from sentinel.stats import draft as build_draft_stats
 from sentinel.stats import plan as build_plan_stats
@@ -16,10 +16,10 @@ from sentinel.reports import kit as build_review_kit
 from sentinel.reports import scorecard as build_review_scorecards
 from sentinel.reports import catalog as build_template_candidate_catalog
 from sentinel.reports import backlog as build_template_backlog
-import concept_audit
+from sentinel.audit import concept as concept_audit
 from sentinel.audit import draft as draft_audit
 from sentinel.audit import plan as plan_audit
-import plan_draft_alignment
+from sentinel.lib import alignment as plan_draft_alignment
 from sentinel.lib.analysis import analyze_files
 from sentinel.lib.paths import collect_chapter_files
 
