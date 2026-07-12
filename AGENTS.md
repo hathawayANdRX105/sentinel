@@ -19,6 +19,7 @@ Run focused checks from the repository root:
 ```bash
 PYTHONPATH=src python3 -m unittest tests.test_rules_config -v
 PYTHONPATH=src python3 -m unittest tests.test_outputs -v
+PYTHONPATH=src python3 -m unittest tests.test_real_draft_smoke -v
 ```
 
 CLI smoke examples:
@@ -28,4 +29,6 @@ PYTHONPATH=src python3 -m audit.plan --input path/to/plan.md --output /tmp/plan.
 PYTHONPATH=src python3 -m audit.draft --input path/to/ch01.md --format markdown --output /tmp/draft.md
 PYTHONPATH=src python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
 PYTHONPATH=src python3 -m stats.draft --input path/to/story-dir --output-root /tmp/draft-stats-out
+just smoke-real-stats
+just smoke-real-audit
 ```

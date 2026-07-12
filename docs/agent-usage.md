@@ -44,3 +44,27 @@ PYTHONPATH=src python3 -m stats.draft --input /path/to/story-dir --output-root /
 ```
 
 The audit files contain one report per input; `stats` writes mirrored chapter files plus a `SUMMARY.md` per source directory.
+
+## 真实草稿 smoke
+
+默认使用外部真实章节（不进仓库）：
+
+- 故事目录：`~/projects/novel/novel1/drafts/story-3-foreign-whispers`
+- 覆盖：`SENTINEL_SMOKE_DRAFT_DIR=/abs/path/to/story`
+- 输出只写 `/tmp`，不提交报告文件
+
+```bash
+# 统计 smoke（SUMMARY + 章节/pairs 报告 + JSON 指标）
+just smoke-real-stats
+just smoke-real-stats $HOME/projects/novel/novel1/drafts/story-2-undercurrent
+
+# 单章 audit smoke
+just smoke-real-audit
+
+# 可编程 smoke（缺外部数据时 Skip）
+PYTHONPATH=src python3 -m unittest tests.test_real_draft_smoke -v
+
+# 底层脚本（just 包装同命令）
+python3 scripts/smoke_real_stats.py
+python3 scripts/smoke_real_audit.py
+```
