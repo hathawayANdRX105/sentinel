@@ -284,7 +284,7 @@ def density(count: int, chars: int) -> float:
     return count * 10000.0 / chars
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=4096)
 def _compile_pattern(pattern: str) -> re.Pattern[str]:
     return re.compile(pattern)
 

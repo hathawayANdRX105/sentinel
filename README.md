@@ -40,7 +40,7 @@ python3 -m stats.draft --input path/to/story-dir --output-root /tmp/stats-out
 python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
 ```
 
-完整的输入/输出约束、自动化退出码、性能开关与可复现示例见 [`docs/agent-usage.md`](docs/agent-usage.md)。
+完整的输入/输出约束、自动化退出码、性能开关与可复现示例见 [`docs/agent-usage.md`](docs/agent-usage.md)。更完整的 Agent 使用说明见 [`GUIDE.md`](GUIDE.md)。
 
 ## 规则配置
 
@@ -59,7 +59,9 @@ python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
 
 ```bash
 cd ~/projects/sentinel
-PYTHONPATH=src python3 -m unittest tests.test_rules_config tests.test_outputs -v
+PYTHONPATH=src python3 -m unittest tests.test_rules_config tests.test_outputs tests.test_real_draft_smoke -v
+# 或
+just test
 ```
 
 ## 与 novel 项目的关系

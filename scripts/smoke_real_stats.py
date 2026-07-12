@@ -58,11 +58,16 @@ def main(argv: list[str]) -> int:
     if not chapters:
         raise SystemExit("no chapter lines in SUMMARY")
 
-    hard_flag_lines = [
-        ln[2:]
-        for ln in text.splitlines()
-        if ln.startswith("- `") and "total=`" in ln
-    ][:8]
+    hard_flag_lines: list[str] = []
+    in_hard_flags = False
+    for ln in text.splitlines():
+        if ln.startswith("## "):
+            in_hard_flags = ln.strip() == "## Story-Wide Hard Flags"
+            continue
+        if in_hard_flags and ln.startswith("- `") and "total=`" in ln:
+            hard_flag_lines.append(ln[2:])
+        if len(hard_flag_lines) >= 8:
+            break
     metrics = {
         "summary_path": str(summary),
         "chapter_count": len(chapters),

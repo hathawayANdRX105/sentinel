@@ -5,6 +5,7 @@
 - This repository contains only the Sentinel review tools, not novel prose.
 - Treat `novel-novel2` as external input data passed by CLI path.
 - Keep the package under `src/`; do not reintroduce the old top-level `sentinel/` package.
+- 跨 agent 使用说明：见根目录 [`GUIDE.md`](GUIDE.md)。
 
 ## Workflow
 
