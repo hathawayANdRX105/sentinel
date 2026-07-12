@@ -10,6 +10,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from functools import lru_cache
 from typing import Any, Iterable
 
 from lib import rules
@@ -283,8 +284,13 @@ def density(count: int, chars: int) -> float:
     return count * 10000.0 / chars
 
 
+@lru_cache(maxsize=None)
+def _compile_pattern(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern)
+
+
 def find_hits(pattern: str, lines: list[str], sample_limit: int) -> tuple[int, list[Hit]]:
-    regex = re.compile(pattern)
+    regex = _compile_pattern(pattern)
     count = 0
     hits: list[Hit] = []
     for line_no, line in enumerate(lines, start=1):
