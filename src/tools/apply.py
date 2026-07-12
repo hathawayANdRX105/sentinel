@@ -50,7 +50,7 @@ def build_plan(catalog: dict[str, Any]) -> list[dict[str, Any]]:
         else:
             action = "manual_review"
 
-        if state == "hardcoded":
+        if state in {"hardcoded", "builtin"}:
             action = "script_recalibration"
         elif state == "bank" and action in {"template_bank", "term_bank"}:
             action = "bank_recalibration"

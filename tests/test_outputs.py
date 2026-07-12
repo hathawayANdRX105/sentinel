@@ -1,30 +1,51 @@
 from __future__ import annotations
+
 import tempfile
 import unittest
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[1]
 
-
-
-from stats import draft as build_draft_stats
+import consistency as consistency_index
+from audit import draft as draft_audit
+from lib import io as lib_io
+from lib import paths as lib_paths
 from reports import kit as build_review_kit
 from reports import learning as build_review_learning_logs
 from reports import scorecard as build_review_scorecards
-import consistency as consistency_index
-from audit import draft as draft_audit
-from lib import io as review_io
-from lib import paths as review_paths
+from stats import draft as build_draft_stats
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_output_story_dir() -> Path | None:
+    """Prefer the same real drafts used by smoke; fall back to legacy novel-novel2 path."""
+    candidates = [
+        Path.home() / "projects/novel/novel1/drafts/story-3-foreign-whispers",
+        ROOT.parent / "novel" / "novel1" / "drafts" / "story-3-foreign-whispers",
+        ROOT.parent / "novel-novel2" / "novel1" / "drafts" / "arc1" / "story3",
+    ]
+    for path in candidates:
+        if path.is_dir() and any(path.glob("ch*.md")):
+            return path
+    return None
 
 
 class ReviewOutputTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.novel_story = ROOT.parent / "novel-novel2" / "novel1" / "drafts" / "arc1" / "story3"
-        if not cls.novel_story.exists():
-            raise unittest.SkipTest(f"novel data not available at {cls.novel_story}")
-        cls.story_dir = cls.novel_story
+        story = resolve_output_story_dir()
+        if story is None:
+            raise unittest.SkipTest(
+                "external novel drafts missing; expected "
+                "~/projects/novel/novel1/drafts/story-3-foreign-whispers "
+                "or legacy novel-novel2 arc1/story3"
+            )
+        cls.story_dir = story
         cls.files = build_review_scorecards.collect_chapter_files([str(cls.story_dir)])[:3]
-        cls.corpus_profile = draft_audit.build_corpus_profile(draft_audit.corpus_paths_for_targets(cls.files))
+        if len(cls.files) < 2:
+            raise unittest.SkipTest(f"need at least 2 chapters under {cls.story_dir}")
+        cls.corpus_profile = draft_audit.build_corpus_profile(
+            draft_audit.corpus_paths_for_targets(cls.files)
+        )
         cls.analyses = [
             (
                 path,
@@ -46,14 +67,14 @@ class ReviewOutputTests(unittest.TestCase):
         if build_draft_stats.infer_ending_label(analysis) != "imagery_coda":
             raise AssertionError("expected imagery ending label fixture")
 
-    def test_reviewlib_paths_and_io_helpers(self) -> None:
-        draft_path = ROOT / "novel1" / "drafts" / "arc1" / "story3" / "ch01.md"
-        stats_path = review_paths.stats_path_for(draft_path)
-        self.assertTrue(str(stats_path).endswith("novel1/draft-stats/arc1/story3/ch01.md"))
+    def test_lib_paths_and_io_helpers(self) -> None:
+        draft_path = Path("novel1/drafts/arc1/story3/ch01.md")
+        stats_path = lib_paths.stats_path_for(draft_path)
+        self.assertEqual(stats_path.as_posix(), "novel1/draft-stats/arc1/story3/ch01.md")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             target = Path(tmpdir) / "nested" / "sample.txt"
-            review_io.write_text(target, "ok")
+            lib_io.write_text(target, "ok")
             self.assertEqual(target.read_text(encoding="utf-8"), "ok")
 
     def test_scorecard_and_learning_summaries_include_ending_trends(self) -> None:

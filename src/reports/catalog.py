@@ -95,9 +95,10 @@ def load_bank_names(key: str) -> set[str]:
 
 
 
-def load_hardcoded_template_names() -> set[str]:
+def load_builtin_rule_template_names() -> set[str]:
+    """Names already defined on draft audit rule tables (not YAML bank entries)."""
     names: set[str] = set()
-    for rules in (
+    for rule_table in (
         draft_audit.PATTERN_RULES,
         draft_audit.PHRASE_RULES,
         draft_audit.TOKEN_RULES,
@@ -105,7 +106,7 @@ def load_hardcoded_template_names() -> set[str]:
         draft_audit.COMBO_RULES,
         draft_audit.MODIFIER_RULES,
     ):
-        for item in rules:
+        for item in rule_table:
             if item.get("label"):
                 names.add(str(item["label"]))
             if item.get("name"):
@@ -113,14 +114,15 @@ def load_hardcoded_template_names() -> set[str]:
     return names
 
 
-def load_hardcoded_term_names() -> set[str]:
+def load_builtin_rule_term_names() -> set[str]:
+    """Token/phrase/modifier names already defined on draft audit rule tables."""
     names: set[str] = set()
-    for rules in (
+    for rule_table in (
         draft_audit.TOKEN_RULES,
         draft_audit.PHRASE_RULES,
         draft_audit.MODIFIER_RULES,
     ):
-        for item in rules:
+        for item in rule_table:
             if item.get("name"):
                 names.add(str(item["name"]))
     return names
@@ -306,14 +308,14 @@ def build_writeback_queue(
     keep_candidates: list[dict[str, object]],
     template_bank_names: set[str],
     term_bank_names: set[str],
-    hardcoded_template_names: set[str],
-    hardcoded_term_names: set[str],
+    builtin_template_names: set[str],
+    builtin_term_names: set[str],
 ) -> list[dict[str, object]]:
     queue: list[dict[str, object]] = []
     for item in template_families:
         name = str(item["name"])
         in_bank = name in template_bank_names
-        in_hardcoded = name in hardcoded_template_names
+        in_builtin = name in builtin_template_names
         story_count = int(item["story_count"])
         count = int(item["count"])
         if story_count < 2:
@@ -330,7 +332,7 @@ def build_writeback_queue(
                     "reason": "模板已在库中，但跨 Story 仍高频命中，应回看 pattern、阈值或说明是否过宽。",
                 }
             )
-        elif in_hardcoded and count >= 12:
+        elif in_builtin and count >= 12:
             queue.append(
                 {
                     "kind": "rule_recalibration",
@@ -338,7 +340,7 @@ def build_writeback_queue(
                     "target": "audit.draft",
                     "stories": story_count,
                     "count": count,
-                    "state": "hardcoded",
+                    "state": "builtin",
                     "reason": "这条规则已经写在审查脚本里，高频命中更像阈值、分类或说明需要回调，而不是简单再加一条 bank。",
                 }
             )
@@ -357,7 +359,7 @@ def build_writeback_queue(
     for item in term_candidates:
         name = str(item["name"])
         in_bank = name in term_bank_names
-        in_hardcoded = name in hardcoded_term_names
+        in_builtin = name in builtin_term_names
         story_count = int(item["story_count"])
         count = int(item["count"])
         if story_count < 2:
@@ -374,7 +376,7 @@ def build_writeback_queue(
                     "reason": "词项已在库中却仍跨 Story 偏高，应调阈值、说明，或拆成更细 phrase 规则。",
                 }
             )
-        elif in_hardcoded and count >= 8:
+        elif in_builtin and count >= 8:
             queue.append(
                 {
                     "kind": "rule_recalibration",
@@ -382,7 +384,7 @@ def build_writeback_queue(
                     "target": "audit.draft",
                     "stories": story_count,
                     "count": count,
-                    "state": "hardcoded",
+                    "state": "builtin",
                     "reason": "这条词项已经在审查脚本基础规则里，高频命中说明更适合调阈值或拆分类，而不是重复入库。",
                 }
             )
@@ -521,8 +523,8 @@ def build_catalog_markdown(
 def build_catalog_payload(novel_dir: Path, payloads: list[dict[str, object]]) -> dict[str, object]:
     template_bank_names = load_bank_names("name")
     term_bank_names = load_bank_names("term")
-    hardcoded_template_names = load_hardcoded_template_names()
-    hardcoded_term_names = load_hardcoded_term_names()
+    builtin_template_names = load_builtin_rule_template_names()
+    builtin_term_names = load_builtin_rule_term_names()
     template_candidates = aggregate_candidates(payloads, "template_bank_candidates")
     template_families = aggregate_candidate_families(template_candidates)
     term_candidates = aggregate_candidates(payloads, "term_bank_candidates")
@@ -535,8 +537,8 @@ def build_catalog_payload(novel_dir: Path, payloads: list[dict[str, object]]) ->
         keep_candidates,
         template_bank_names,
         term_bank_names,
-        hardcoded_template_names,
-        hardcoded_term_names,
+        builtin_template_names,
+        builtin_term_names,
     )
     return {
         "novel": novel_dir.name,

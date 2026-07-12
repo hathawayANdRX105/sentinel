@@ -233,10 +233,10 @@ def build_learning_log(draft_path: Path, analysis: dict[str, object], consistenc
     lines.append("")
 
     lines.append("## Manual Decisions")
-    lines.append("- confirmed_issues: `TODO`")
-    lines.append("- false_positives: `TODO`")
-    lines.append("- design_repeats_to_keep: `TODO`")
-    lines.append("- missing_checks: `TODO`")
+    lines.append("- confirmed_issues: `_fill_in_`")
+    lines.append("- false_positives: `_fill_in_`")
+    lines.append("- design_repeats_to_keep: `_fill_in_`")
+    lines.append("- missing_checks: `_fill_in_`")
     lines.append("")
 
     lines.append("## Template Backlog")

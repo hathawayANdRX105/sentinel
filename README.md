@@ -1,46 +1,38 @@
 # Sentinel
 
-小说审查工具包。从 `novel-novel2` 的 `refactor/review-tool-split` 分支拆出，独立演进。
+小说审查工具包（大纲 / 草稿 CLI）。从 novel 仓库的 review 工具拆出，独立演进。
 
 ## 目录
 
 ```text
 sentinel/
-├── configs/
-│   └── rules/review.yaml  # 统一规则配置（模板、词项、大纲/草稿检测）
+├── configs/rules/review.yaml  # 统一规则（模板、词项、大纲/草稿检测）
 ├── src/
-│   ├── audit/
-│   │   ├── draft.py       # 草稿审查
-│   │   └── plan.py        # 大纲审查
-│   ├── stats/
-│   │   ├── draft.py       # 草稿统计（单章/2章/3章）
-│   │   └── plan.py        # 大纲统计
-│   ├── reports/           # 审稿包、评分卡、学习日志、候选目录
-│   ├── tools/apply.py     # 模板候选写回
-│   ├── lib/               # CLI、I/O、路径、规则加载、批量分析
-│   └── consistency.py     # 一致性索引
-└── tests/
+│   ├── audit/                 # 大纲/草稿审查
+│   ├── stats/                 # 大纲/草稿统计
+│   ├── reports/               # 审稿包、评分卡、学习日志、候选目录
+│   ├── tools/apply.py         # 模板候选写回
+│   ├── lib/                   # CLI、I/O、路径、规则加载
+│   └── consistency.py         # 一致性索引
+├── tests/
+├── scripts/                   # 真实草稿 smoke 脚本
+├── justfile
+└── GUIDE.md                   # Agent 使用说明（唯一完整文档）
 ```
 
 ## 快速使用
 
 ```bash
-export PYTHONPATH=~/projects/sentinel/src
+cd ~/projects/sentinel
+export PYTHONPATH=src
 
-# 大纲审查
 python3 -m audit.plan --input path/to/plan.md --output /tmp/plan.md
-
-# 草稿审查
 python3 -m audit.draft --input path/to/ch01.md --format markdown --output /tmp/draft.md
-
-# 草稿统计
 python3 -m stats.draft --input path/to/story-dir --output-root /tmp/stats-out
-
-# 大纲统计
 python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
 ```
 
-完整的输入/输出约束、自动化退出码、性能开关与可复现示例见 [`docs/agent-usage.md`](docs/agent-usage.md)。更完整的 Agent 使用说明见 [`GUIDE.md`](GUIDE.md)。
+完整输入/输出规则、smoke、禁止事项见根目录 [`GUIDE.md`](GUIDE.md)。
 
 ## 规则配置
 
