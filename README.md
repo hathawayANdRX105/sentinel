@@ -40,6 +40,8 @@ python3 -m stats.draft --input path/to/story-dir --output-root /tmp/stats-out
 python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
 ```
 
+完整的输入/输出约束、自动化退出码、性能开关与可复现示例见 [`docs/agent-usage.md`](docs/agent-usage.md)。
+
 ## 规则配置
 
 所有检测规则集中在 `configs/rules/review.yaml`：

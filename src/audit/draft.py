@@ -1091,18 +1091,23 @@ def collect_ngram_terms(
 ) -> list[tuple[str, int]]:
     cleaned = re.sub(r"[^\u4e00-\u9fffA-Za-z]", "", text)
     counts: collections.Counter[str] = collections.Counter()
-    for size, min_count in min_count_by_size.items():
+    sizes = tuple(sorted(min_count_by_size))
+    one_terms = {size: "一" * size for size in sizes}
+    stoplist = WORD_STOPLIST
+    structure_chars = STRUCTURE_CHARS
+
+    for size in sizes:
         if len(cleaned) < size:
             continue
         for idx in range(len(cleaned) - size + 1):
             phrase = cleaned[idx : idx + size]
-            if phrase in WORD_STOPLIST:
+            if phrase in stoplist:
                 continue
-            if re.fullmatch(r"[A-Za-z]+", phrase):
+            if phrase.isascii() and phrase.isalpha():
                 continue
-            if phrase.count("一") == len(phrase):
+            if phrase == one_terms[size]:
                 continue
-            if require_structure and not any(ch in STRUCTURE_CHARS for ch in phrase):
+            if require_structure and structure_chars.isdisjoint(phrase):
                 continue
             counts[phrase] += 1
     filtered = [
@@ -1113,14 +1118,17 @@ def collect_ngram_terms(
     filtered.sort(key=lambda item: (-item[1], -len(item[0]), item[0]))
 
     deduped: list[tuple[str, int]] = []
+    covered_phrases: set[str] = set()
     for phrase, count in filtered:
-        covered = False
-        for kept_phrase, kept_count in deduped:
-            if phrase in kept_phrase and kept_count >= count:
-                covered = True
-                break
-        if not covered:
-            deduped.append((phrase, count))
+        if phrase in covered_phrases:
+            continue
+        deduped.append((phrase, count))
+        phrase_len = len(phrase)
+        for size in sizes:
+            if size > phrase_len:
+                continue
+            for idx in range(phrase_len - size + 1):
+                covered_phrases.add(phrase[idx : idx + size])
     return deduped
 
 

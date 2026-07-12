@@ -74,6 +74,14 @@ class ReviewRulesConfigTests(unittest.TestCase):
         self.assertGreaterEqual(int(hits[0]["count"]), 1)
 
 
+    def test_ngram_terms_keep_maximal_repetition(self) -> None:
+        terms = draft_audit.collect_ngram_terms(
+            "继续调查" * 4,
+            min_count_by_size={2: 2, 3: 2, 4: 2},
+            require_structure=False,
+        )
+        self.assertIn(("继续调查", 4), terms)
+
     def test_plan_main_does_not_fail_on_content_warnings_by_default(self) -> None:
         from audit import plan as plan_audit
 
