@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sentinel.audit import draft as draft_audit
+from audit import draft as draft_audit
 
 
 def build_corpus_profile_for_files(files: list[Path]) -> draft_audit.CorpusProfile | None:

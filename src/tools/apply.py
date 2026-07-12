@@ -12,12 +12,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from sentinel.lib import rules
+from lib import rules
 
 
-YAML_TEMPLATE_TARGET = "scripts/rules.yaml#draft.template_rules"
-YAML_TERM_TARGET = "scripts/rules.yaml#draft.tracked_terms"
-YAML_INACTIVE_TARGET = "scripts/rules.yaml#draft.inactive_template_candidates"
+YAML_TEMPLATE_TARGET = "configs/rules/review.yaml#draft.template_rules"
+YAML_TERM_TARGET = "configs/rules/review.yaml#draft.tracked_terms"
+YAML_INACTIVE_TARGET = "configs/rules/review.yaml#draft.inactive_template_candidates"
 
 
 def load_catalog(path: Path) -> dict[str, Any]:

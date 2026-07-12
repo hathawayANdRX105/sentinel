@@ -7,10 +7,10 @@ import argparse
 import collections
 from pathlib import Path
 
-from sentinel.stats import draft as build_draft_stats
-from sentinel.audit import draft as draft_audit
-from sentinel.lib.io import write_text
-from sentinel.lib.paths import chapter_sort_key, collect_chapter_files
+from stats import draft as build_draft_stats
+from audit import draft as draft_audit
+from lib.io import write_text
+from lib.paths import chapter_sort_key, collect_chapter_files
 
 
 def profile_path_for(draft_path: Path, output_root: Path | None = None) -> Path:

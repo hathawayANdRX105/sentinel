@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from sentinel.lib import rules
-from sentinel.lib.cli import resolve_inputs
-from sentinel.lib.io import write_text
+from lib import rules
+from lib.cli import resolve_inputs
+from lib.io import write_text
 
 
 RULES = rules.load_rules()

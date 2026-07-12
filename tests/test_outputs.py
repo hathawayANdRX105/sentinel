@@ -1,22 +1,19 @@
 from __future__ import annotations
-
-import sys
 import tempfile
 import unittest
 from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
 
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
-from sentinel.stats import draft as build_draft_stats
-from sentinel.reports import kit as build_review_kit
-from sentinel.reports import learning as build_review_learning_logs
-from sentinel.reports import scorecard as build_review_scorecards
-from sentinel import consistency as consistency_index
-from sentinel.audit import draft as draft_audit
-from sentinel.lib import io as review_io
-from sentinel.lib import paths as review_paths
+from stats import draft as build_draft_stats
+from reports import kit as build_review_kit
+from reports import learning as build_review_learning_logs
+from reports import scorecard as build_review_scorecards
+import consistency as consistency_index
+from audit import draft as draft_audit
+from lib import io as review_io
+from lib import paths as review_paths
 
 
 class ReviewOutputTests(unittest.TestCase):
@@ -46,7 +43,8 @@ class ReviewOutputTests(unittest.TestCase):
                 "image_terms": [{"term": "冷光", "count": 1}, {"term": "影子", "count": 1}],
             }
         }
-        self.assertEqual(build_draft_stats.infer_ending_label(analysis), "imagery_coda")
+        if build_draft_stats.infer_ending_label(analysis) != "imagery_coda":
+            raise AssertionError("expected imagery ending label fixture")
 
     def test_reviewlib_paths_and_io_helpers(self) -> None:
         draft_path = ROOT / "novel1" / "drafts" / "arc1" / "story3" / "ch01.md"

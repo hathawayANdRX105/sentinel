@@ -7,13 +7,13 @@ import argparse
 import collections
 from pathlib import Path
 
-from sentinel.stats import draft as build_draft_stats
-from sentinel import consistency as consistency_index
-from sentinel.audit import draft as draft_audit
-from sentinel.lib import alignment as plan_draft_alignment
-from sentinel.lib.analysis import analyze_files, build_corpus_profile_for_files
-from sentinel.lib.io import write_text
-from sentinel.lib.paths import chapter_sort_key, collect_chapter_files, novel_dir_for_draft
+from stats import draft as build_draft_stats
+import consistency as consistency_index
+from audit import draft as draft_audit
+from lib import alignment as plan_draft_alignment
+from lib.analysis import analyze_files, build_corpus_profile_for_files
+from lib.io import write_text
+from lib.paths import chapter_sort_key, collect_chapter_files, novel_dir_for_draft
 
 
 def learning_log_path_for(draft_path: Path) -> Path:
@@ -120,14 +120,14 @@ def collect_rule_suggestions(analysis: dict[str, object]) -> list[dict[str, str]
     if len(analysis["sentence_patterns"]) >= 4:
         suggestions.append(
             {
-                "target": "scripts/rules.yaml#draft.template_rules",
+                "target": "configs/rules/review.yaml#draft.template_rules",
                 "reason": "句首骨架重复已经形成明确家族，可考虑把高频骨架固化成模板库条目。",
             }
         )
     if analysis["tracked_term_window_count"] >= 3:
         suggestions.append(
             {
-                "target": "scripts/rules.yaml#draft.tracked_terms",
+                "target": "configs/rules/review.yaml#draft.tracked_terms",
                 "reason": "局部点名密度偏高，说明某些实体或动作词值得进入跟踪词库。",
             }
         )
@@ -141,7 +141,7 @@ def collect_rule_suggestions(analysis: dict[str, object]) -> list[dict[str, str]
     if analysis["battle_profile"]["warn"] or analysis["scene_map"]["warn"]:
         suggestions.append(
             {
-                "target": "scripts/rules.yaml#draft.template_rules",
+                "target": "configs/rules/review.yaml#draft.template_rules",
                 "reason": "场面功能失衡或动作链缺结果已开始出现，可继续补充对应模板与反模板样本。",
             }
         )
@@ -180,7 +180,7 @@ def build_consistency_suggestions(snapshot: dict[str, object]) -> list[dict[str,
     if decision_counter.get("false_positive", 0) >= 2:
         suggestions.append(
             {
-                "target": "scripts/consistency_index.py",
+                "target": "consistency",
                 "reason": "同一 story 已累计多条一致性误报，说明抽取逻辑该继续压噪，而不是把人工复核当常态。",
             }
         )
@@ -194,7 +194,7 @@ def build_consistency_suggestions(snapshot: dict[str, object]) -> list[dict[str,
     if any(name.endswith("::designed_keep") for name in category_counter):
         suggestions.append(
             {
-                "target": "scripts/rules.yaml#draft.template_rules",
+                "target": "configs/rules/review.yaml#draft.template_rules",
                 "reason": "已有一致性候选被人工判为设计性保留，说明某些重复或称谓变化应进入可保留模式样本，而不是继续当纯风险。",
             }
         )

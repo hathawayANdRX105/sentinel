@@ -8,20 +8,20 @@ import collections
 import re
 from pathlib import Path
 
-from sentinel.stats import concept as build_concept_stats
-from sentinel import consistency as consistency_index
-from sentinel.stats import draft as build_draft_stats
-from sentinel.stats import plan as build_plan_stats
-from sentinel.reports import kit as build_review_kit
-from sentinel.reports import scorecard as build_review_scorecards
-from sentinel.reports import catalog as build_template_candidate_catalog
-from sentinel.reports import backlog as build_template_backlog
-from sentinel.audit import concept as concept_audit
-from sentinel.audit import draft as draft_audit
-from sentinel.audit import plan as plan_audit
-from sentinel.lib import alignment as plan_draft_alignment
-from sentinel.lib.analysis import analyze_files
-from sentinel.lib.paths import collect_chapter_files
+from stats import concept as build_concept_stats
+import consistency as consistency_index
+from stats import draft as build_draft_stats
+from stats import plan as build_plan_stats
+from reports import kit as build_review_kit
+from reports import scorecard as build_review_scorecards
+from reports import catalog as build_template_candidate_catalog
+from reports import backlog as build_template_backlog
+from audit import concept as concept_audit
+from audit import draft as draft_audit
+from audit import plan as plan_audit
+from lib import alignment as plan_draft_alignment
+from lib.analysis import analyze_files
+from lib.paths import collect_chapter_files
 
 
 PLAN_DIR_NAMES = ("arc-plan", "story-plan", "chapter-plan")
@@ -439,16 +439,16 @@ def infer_template_deposition_target(candidate_type: str, candidate_name: str) -
     if candidate_type in {"dialogue", "dialogue_axis_gap", "dialogue_emotion"}:
         return "skills/review-guide.md"
     if candidate_type in {"tracked_term", "tracked_term_window", "learned_filter"}:
-        return "scripts/rules.yaml#draft.tracked_terms"
+        return "configs/rules/review.yaml#draft.tracked_terms"
     if candidate_type in {"scene_map", "battle_profile", "viewpoint_profile"}:
-        return "scripts/rules.yaml#draft.template_rules"
+        return "configs/rules/review.yaml#draft.template_rules"
     if candidate_type in {"sentence_pattern", "short_phrase", "aa_bb_pattern", "custom_template"}:
-        return "scripts/rules.yaml#draft.template_rules"
+        return "configs/rules/review.yaml#draft.template_rules"
     if candidate_type == "ending":
         return "novel1/rules/draft.md"
     if candidate_name in {"场面功能失衡", "动作链缺结果", "视角锚点漂移"}:
-        return "scripts/rules.yaml#draft.template_rules"
-    return "scripts/rules.yaml#draft.template_rules"
+        return "configs/rules/review.yaml#draft.template_rules"
+    return "configs/rules/review.yaml#draft.template_rules"
 
 
 def collect_concept_section(novel_dir: Path) -> dict[str, object]:
@@ -1266,8 +1266,8 @@ def build_dashboard(
     lines.append("1. 先修 `draft` 里 `gate=FAIL`、`recommendation=targeted_rewrite` 的章节，再看 `pairs / triples`")
     lines.append("2. 再修 `chapter-plan` 与 `story-plan` 的字段错位和空字段")
     lines.append("3. 如果某章评分里 `一致性准备度` 明显偏低，先跑 `consistency_index.py suspects` 再决定是否只是局部误写")
-    lines.append("4. 如果已经锁定某条 Story，要逐条复核一致性候选，直接跑 `python3 scripts/consistency_index.py review-queue novel1 --story storyN`")
-    lines.append("5. 做完一轮局部复核后，立刻跑 `python3 scripts/consistency_index.py feedback-summary novel1 --story storyN` 看这一条 Story 是否开始收敛")
+    lines.append("4. 如果已经锁定某条 Story，要逐条复核一致性候选，直接跑 `python3 -m consistency review-queue novel1 --story storyN`")
+    lines.append("5. 做完一轮局部复核后，立刻跑 `python3 -m consistency feedback-summary novel1 --story storyN` 看这一条 Story 是否开始收敛")
     lines.append("6. 最后补 `concept` 缺口，避免下游继续空转")
     return "\n".join(lines) + "\n"
 

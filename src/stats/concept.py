@@ -7,7 +7,7 @@ import argparse
 import collections
 from pathlib import Path
 
-from sentinel.audit import concept as concept_audit
+from audit import concept as concept_audit
 
 
 def stats_path_for(card_path: Path) -> Path:

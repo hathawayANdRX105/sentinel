@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from sentinel.audit import draft as draft_audit
+from audit import draft as draft_audit
 
 
 CHAPTER_RE = re.compile(r"ch(\d+)", re.IGNORECASE)

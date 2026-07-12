@@ -7,12 +7,12 @@ import argparse
 import collections
 from pathlib import Path
 
-from sentinel.audit import draft as draft_audit
-from sentinel.lib import rules
-from sentinel.lib.cli import resolve_inputs
-from sentinel.lib.analysis import analyze_files, build_corpus_profile_for_files
-from sentinel.lib.io import write_text
-from sentinel.lib.paths import (
+from audit import draft as draft_audit
+from lib import rules
+from lib.cli import resolve_inputs
+from lib.analysis import analyze_files, build_corpus_profile_for_files
+from lib.io import write_text
+from lib.paths import (
     chapter_sort_key,
     collect_chapter_files,
     stats_path_for as default_stats_path_for,

@@ -7,12 +7,12 @@ import argparse
 import collections
 from pathlib import Path
 
-from sentinel.stats import draft as build_draft_stats
-from sentinel.reports import learning as build_review_learning_logs
-from sentinel.reports import scorecard as build_review_scorecards
-from sentinel.audit import draft as draft_audit
-from sentinel.lib.analysis import analyze_files, build_corpus_profile_for_files
-from sentinel.lib.io import write_json, write_text
+from stats import draft as build_draft_stats
+from reports import learning as build_review_learning_logs
+from reports import scorecard as build_review_scorecards
+from audit import draft as draft_audit
+from lib.analysis import analyze_files, build_corpus_profile_for_files
+from lib.io import write_json, write_text
 
 
 def backlog_path_for(draft_path: Path) -> Path:
@@ -33,7 +33,7 @@ def infer_template_candidate(
         "name": name,
         "count": count,
         "sample": sample,
-        "suggested_target": "scripts/rules.yaml#draft.template_rules",
+        "suggested_target": "configs/rules/review.yaml#draft.template_rules",
         "reason": "跨章重复出现，优先作为模板库候选继续人工筛选。",
     }
 
@@ -49,7 +49,7 @@ def infer_term_candidate(
         "name": name,
         "count": count,
         "sample": sample,
-        "suggested_target": "scripts/rules.yaml#draft.tracked_terms",
+        "suggested_target": "configs/rules/review.yaml#draft.tracked_terms",
         "reason": "跨章重复出现，更像词项或短语，需要进词库观察。",
     }
 
@@ -63,7 +63,7 @@ def infer_keep_candidate(
         "name": name,
         "count": count,
         "reason": reason,
-        "suggested_target": "scripts/rules.yaml#draft.template_rules",
+        "suggested_target": "configs/rules/review.yaml#draft.template_rules",
         "action": "designed_keep_review",
     }
 
@@ -125,7 +125,7 @@ def build_story_backlog(
     lines.append("## Next Actions")
     lines.append("1. 先看 `Repeat Candidates` 里跨章反复出现的家族，判断它该进模板库、词库，还是只算局部问题。")
     lines.append("2. 再看 `Keep Candidates`，避免把本来应保留的节奏、章末收束或动作后果误杀。")
-    lines.append("3. 最后按 `Deposition Targets` 决定写回 `scripts/rules.yaml`（`draft.template_rules` / `draft.tracked_terms`）、`skills/review-guide.md` 还是本书规则。")
+    lines.append("3. 最后按 `Deposition Targets` 决定写回 `configs/rules/review.yaml`（`draft.template_rules` / `draft.tracked_terms`）、`skills/review-guide.md` 还是本书规则。")
     lines.append("")
 
     template_bank_candidates: list[dict[str, object]] = []

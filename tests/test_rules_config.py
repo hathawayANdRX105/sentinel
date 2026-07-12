@@ -1,15 +1,10 @@
 from __future__ import annotations
-
-import sys
 import unittest
-from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
-from sentinel.audit import draft as draft_audit
-from sentinel.lib import rules
+from audit import draft as draft_audit
+from lib import rules
 
 
 class ReviewRulesConfigTests(unittest.TestCase):
@@ -78,6 +73,52 @@ class ReviewRulesConfigTests(unittest.TestCase):
         self.assertTrue(hits, "expected YAML pattern 不是A而是B to hit")
         self.assertGreaterEqual(int(hits[0]["count"]), 1)
 
+
+    def test_plan_main_does_not_fail_on_content_warnings_by_default(self) -> None:
+        from audit import plan as plan_audit
+
+        original_parse_args = plan_audit.parse_args
+        original_audit_file = plan_audit.audit_file
+        original_write_reports = plan_audit._write_reports
+        original_iter_targets = plan_audit.iter_targets
+        try:
+            plan_audit.parse_args = lambda: type(
+                "Args",
+                (),
+                {"paths": ["fixture.md"], "inputs": None, "format": "markdown", "output": None, "fail_on_warn": False},
+            )()
+            plan_audit.audit_file = lambda path: ("story-plan", [plan_audit.Warning(0, "fixture", "warn", "")])
+            plan_audit.iter_targets = lambda raw_paths: ["fixture.md"]
+            plan_audit._write_reports = lambda reports, output_format, output: None
+            self.assertEqual(plan_audit.main(), 0)
+        finally:
+            plan_audit.parse_args = original_parse_args
+            plan_audit.audit_file = original_audit_file
+            plan_audit._write_reports = original_write_reports
+            plan_audit.iter_targets = original_iter_targets
+
+    def test_plan_main_can_fail_on_content_warnings(self) -> None:
+        from audit import plan as plan_audit
+
+        original_parse_args = plan_audit.parse_args
+        original_audit_file = plan_audit.audit_file
+        original_write_reports = plan_audit._write_reports
+        original_iter_targets = plan_audit.iter_targets
+        try:
+            plan_audit.parse_args = lambda: type(
+                "Args",
+                (),
+                {"paths": ["fixture.md"], "inputs": None, "format": "markdown", "output": None, "fail_on_warn": True},
+            )()
+            plan_audit.audit_file = lambda path: ("story-plan", [plan_audit.Warning(0, "fixture", "warn", "")])
+            plan_audit.iter_targets = lambda raw_paths: ["fixture.md"]
+            plan_audit._write_reports = lambda reports, output_format, output: None
+            self.assertEqual(plan_audit.main(), 1)
+        finally:
+            plan_audit.parse_args = original_parse_args
+            plan_audit.audit_file = original_audit_file
+            plan_audit._write_reports = original_write_reports
+            plan_audit.iter_targets = original_iter_targets
 
 if __name__ == "__main__":
     unittest.main()

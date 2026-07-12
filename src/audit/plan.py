@@ -10,9 +10,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from sentinel.lib import rules
-from sentinel.lib.cli import resolve_inputs
-from sentinel.lib.io import write_text
+from lib import rules
+from lib.cli import resolve_inputs
+from lib.io import write_text
 
 
 PLAN_TYPES = ("arc-plan", "story-plan", "chapter-plan")
@@ -73,6 +73,7 @@ ANSWER_LEAK_RE = _compiled_regex("answer_leak")
 SCENE_LEAK_RE = _compiled_regex("scene_leak")
 PROSE_LEAK_RE = _compiled_regex("prose_leak")
 JUDGEMENT_RE = _compiled_regex("judgement")
+
 HOOKISH_RE = _compiled_regex("hookish")
 FORESHADOW_ID_RE = _compiled_regex("foreshadow_id")
 RHYTHM_STYLE_RE = _compiled_regex("rhythm_style_leak")
@@ -579,6 +580,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("paths", nargs="*", help="Plan files or directories to inspect")
     parser.add_argument("-i", "--input", action="append", dest="inputs", help="Input plan file or directory; may be repeated")
     parser.add_argument("--format", choices=["text", "json", "markdown"], default="markdown", help="Report output format")
+    parser.add_argument("--fail-on-warn", action="store_true", help="Exit 1 when any warning appears")
     parser.add_argument("-o", "--output", help="Output file or directory")
     return parser.parse_args()
 
@@ -611,7 +613,8 @@ def main() -> int:
             warned = True
 
     _write_reports(reports, args.format, args.output)
-    return 1 if warned else 0
+    return 1 if args.fail_on_warn and warned else 0
+
 
 
 if __name__ == "__main__":

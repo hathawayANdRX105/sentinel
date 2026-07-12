@@ -6,7 +6,7 @@ from __future__ import annotations
 import collections
 from pathlib import Path
 
-from sentinel.audit import plan as plan_audit
+from audit import plan as plan_audit
 
 
 DRAFT_FUNCTION_RULES = {

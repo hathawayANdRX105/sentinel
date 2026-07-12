@@ -6,53 +6,43 @@
 
 ```text
 sentinel/
-├── rules.yaml          # 统一规则配置（模板、词项、大纲/草稿检测）
-├── audit/
-│   ├── draft.py        # 草稿审查
-│   └── plan.py         # 大纲审查
-├── stats/
-│   ├── draft.py        # 草稿统计（单章/2章/3章）
-│   └── plan.py         # 大纲统计
-├── reports/
-│   ├── kit.py          # 审稿包
-│   ├── scorecard.py    # 评分卡
-│   ├── learning.py     # 学习日志
-│   ├── backlog.py      # 模板 backlog
-│   ├── catalog.py      # 模板候选目录
-│   ├── workspace.py    # 工作区总览
-│   └── profiles.py     # 句式画像
-├── tools/
-│   └── apply.py        # 模板候选写回
-├── lib/
-│   ├── cli.py          # 输入解析
-│   ├── io.py           # 文件写入
-│   ├── paths.py        # 路径工具
-│   ├── rules.py        # YAML 规则加载
-│   └── analysis.py     # 批量分析入口
-└── consistency.py      # 一致性索引
+├── configs/
+│   └── rules/review.yaml  # 统一规则配置（模板、词项、大纲/草稿检测）
+├── src/
+│   ├── audit/
+│   │   ├── draft.py       # 草稿审查
+│   │   └── plan.py        # 大纲审查
+│   ├── stats/
+│   │   ├── draft.py       # 草稿统计（单章/2章/3章）
+│   │   └── plan.py        # 大纲统计
+│   ├── reports/           # 审稿包、评分卡、学习日志、候选目录
+│   ├── tools/apply.py     # 模板候选写回
+│   ├── lib/               # CLI、I/O、路径、规则加载、批量分析
+│   └── consistency.py     # 一致性索引
+└── tests/
 ```
 
 ## 快速使用
 
 ```bash
-export PYTHONPATH=~/projects/sentinel
+export PYTHONPATH=~/projects/sentinel/src
 
 # 大纲审查
-python3 -m sentinel.audit.plan --input path/to/plan.md --output /tmp/plan.md
+python3 -m audit.plan --input path/to/plan.md --output /tmp/plan.md
 
 # 草稿审查
-python3 -m sentinel.audit.draft --input path/to/ch01.md --format markdown --output /tmp/draft.md
+python3 -m audit.draft --input path/to/ch01.md --format markdown --output /tmp/draft.md
 
 # 草稿统计
-python3 -m sentinel.stats.draft --input path/to/story-dir --output-root /tmp/stats-out
+python3 -m stats.draft --input path/to/story-dir --output-root /tmp/stats-out
 
 # 大纲统计
-python3 -m sentinel.stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
+python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
 ```
 
 ## 规则配置
 
-所有检测规则集中在 `sentinel/rules.yaml`：
+所有检测规则集中在 `configs/rules/review.yaml`：
 
 | 段 | 用途 |
 |---|---|
@@ -67,7 +57,7 @@ python3 -m sentinel.stats.plan --input path/to/plans --output-root /tmp/plan-sta
 
 ```bash
 cd ~/projects/sentinel
-python3 -m unittest tests.test_rules_config -v
+PYTHONPATH=src python3 -m unittest tests.test_rules_config tests.test_outputs -v
 ```
 
 ## 与 novel 项目的关系

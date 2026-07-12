@@ -7,7 +7,7 @@ from typing import Any, Iterable, Mapping
 import yaml
 
 
-DEFAULT_RULES_PATH = Path(__file__).resolve().parents[1] / "rules.yaml"
+DEFAULT_RULES_PATH = Path(__file__).resolve().parents[2] / "configs" / "rules" / "review.yaml"
 
 
 @lru_cache(maxsize=None)

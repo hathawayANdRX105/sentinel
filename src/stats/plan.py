@@ -7,9 +7,9 @@ import argparse
 import collections
 from pathlib import Path
 
-from sentinel.audit import plan as plan_audit
-from sentinel.lib.cli import resolve_inputs
-from sentinel.lib.io import write_text
+from audit import plan as plan_audit
+from lib.cli import resolve_inputs
+from lib.io import write_text
 
 
 PLAN_DIRS = ("arc-plan", "story-plan", "chapter-plan")

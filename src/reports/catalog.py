@@ -8,16 +8,16 @@ import collections
 import json
 from pathlib import Path
 
-from sentinel.reports import scorecard as build_review_scorecards
-from sentinel.reports import backlog as build_template_backlog
-from sentinel.audit import draft as draft_audit
-from sentinel.lib import rules
-from sentinel.lib.analysis import build_corpus_profile_for_files
-from sentinel.lib.io import write_json, write_text
+from reports import scorecard as build_review_scorecards
+from reports import backlog as build_template_backlog
+from audit import draft as draft_audit
+from lib import rules
+from lib.analysis import build_corpus_profile_for_files
+from lib.io import write_json, write_text
 
 
-YAML_TEMPLATE_TARGET = "scripts/rules.yaml#draft.template_rules"
-YAML_TERM_TARGET = "scripts/rules.yaml#draft.tracked_terms"
+YAML_TEMPLATE_TARGET = "configs/rules/review.yaml#draft.template_rules"
+YAML_TERM_TARGET = "configs/rules/review.yaml#draft.tracked_terms"
 
 
 
@@ -335,7 +335,7 @@ def build_writeback_queue(
                 {
                     "kind": "rule_recalibration",
                     "name": name,
-                    "target": "scripts/draft_audit.py",
+                    "target": "audit.draft",
                     "stories": story_count,
                     "count": count,
                     "state": "hardcoded",
@@ -379,7 +379,7 @@ def build_writeback_queue(
                 {
                     "kind": "rule_recalibration",
                     "name": name,
-                    "target": "scripts/draft_audit.py",
+                    "target": "audit.draft",
                     "stories": story_count,
                     "count": count,
                     "state": "hardcoded",

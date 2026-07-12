@@ -23,6 +23,11 @@ DOC_GLOBS = (
     "drafts/**/*.md",
 )
 
+CONSISTENCY_MODULE_TARGET = "src/consistency.py"
+RULES_TEMPLATE_TARGET = "configs/rules/review.yaml#draft.template_rules"
+BOOK_DRAFT_RULES_TARGET = "novel1/rules/draft.md"
+CONSISTENCY_CLI = ("python3", "-m", "consistency")
+
 ALIASES_SPLIT_RE = re.compile(r"[，,、；;]")
 HEADER_RE = re.compile(r"^#\s+(.*)$", re.MULTILINE)
 FIELD_RE = re.compile(r"^- ([^：]+)：\s*(.*)$", re.MULTILINE)
@@ -256,8 +261,7 @@ def build_feedback_command(db_path: Path, row: dict[str, object], decision: str 
     command_root = find_novel_dir(db_path) or db_path
     root_label = command_root.name if command_root.name.startswith("novel") else str(command_root)
     command = [
-        "python3",
-        "scripts/consistency_index.py",
+        *CONSISTENCY_CLI,
         "feedback-add",
         root_label,
         "--category",
@@ -344,7 +348,7 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
         category = top_name.split("::", 1)[0]
         backlog.append(
             {
-                "target": "scripts/consistency_index.py",
+                "target": CONSISTENCY_MODULE_TARGET,
                 "reason": f"`{category}` 已累计 {top_count} 条误报反馈，优先压抽取噪声，不要继续把人工复核当默认补丁。",
             }
         )
@@ -353,15 +357,15 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
     if designed_keep_hits:
         top_name, top_count = sorted(designed_keep_hits, key=lambda item: (-item[1], item[0]))[0]
         category = top_name.split("::", 1)[0]
-        target = "scripts/rules.yaml#draft.template_rules"
+        target = RULES_TEMPLATE_TARGET
         reason_tail = "说明这类变化应开始沉淀为可保留模式样本。"
         if facet_counter:
             top_facet, facet_count = facet_counter.most_common(1)[0]
             if top_facet in {"register", "naming"}:
-                target = "novel1/rules/draft.md"
+                target = BOOK_DRAFT_RULES_TARGET
                 reason_tail = f"其中 `{top_facet}` 已出现 {facet_count} 次，更适合先写成命名/称谓边界规则。"
             elif top_facet in {"voice", "rhythm", "motif", "scene_callback", "irony"}:
-                target = "scripts/rules.yaml#draft.template_rules"
+                target = RULES_TEMPLATE_TARGET
                 reason_tail = f"其中 `{top_facet}` 已出现 {facet_count} 次，应开始积累这类可保留风格样本。"
         backlog.append(
             {
@@ -376,7 +380,7 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
         story = top_name.split("::", 1)[0]
         backlog.append(
             {
-                "target": "novel1/rules/draft.md",
+                "target": BOOK_DRAFT_RULES_TARGET,
                 "reason": f"`{story}` 已累计 {top_count} 条确认成立的一致性问题，说明这不是偶发手误，值得沉淀为返工规则。",
             }
         )
@@ -445,8 +449,8 @@ def build_story_conflict_snapshot_from_path(draft_path: Path, limit: int = 200) 
         "db_path": db_path,
         "feedback_path": feedback_path,
         "story": story,
-        "review_queue_command": f"python3 scripts/consistency_index.py review-queue {novel_dir.name} --story {story}",
-        "feedback_summary_command": f"python3 scripts/consistency_index.py feedback-summary {novel_dir.name} --story {story}",
+        "review_queue_command": f"python3 -m consistency review-queue {novel_dir.name} --story {story}",
+        "feedback_summary_command": f"python3 -m consistency feedback-summary {novel_dir.name} --story {story}",
         "rows": rows,
         "decision_counter": decision_counter,
         "category_counter": category_counter,
