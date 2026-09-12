@@ -1134,7 +1134,9 @@ def collect_ngram_terms(
             if size > phrase_len:
                 continue
             for idx in range(phrase_len - size + 1):
-                covered_phrases.add(phrase[idx : idx + size])
+                sub = phrase[idx : idx + size]
+                if counts.get(sub, 0) <= count:
+                    covered_phrases.add(sub)
     return deduped
 
 
