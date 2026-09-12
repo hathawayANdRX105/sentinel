@@ -1,15 +1,2 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.benchmarks/
-.cache/
-*.egg-info/
-dist/
-build/
-.coverage
-htmlcov/
-
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
+.beads/
+.wt/
