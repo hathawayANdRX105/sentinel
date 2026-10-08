@@ -8,4 +8,9 @@
 //! 在本文件追加 `pub mod` 声明，不改动已有模块。
 
 pub mod alignment;
+pub mod backlog;
+pub mod catalog;
+pub mod kit;
+pub mod learning;
+pub mod profiles;
 pub mod scorecard;

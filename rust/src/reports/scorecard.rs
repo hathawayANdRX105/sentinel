@@ -60,7 +60,7 @@ fn ending_display(labels: &EndingLabels, label: &str) -> String {
 }
 
 /// Python `scorecard_path_for`：`stats_path_for(draft).parent / scorecards / {stem}.md`。
-fn scorecard_path_for(draft_path: &Path) -> Result<PathBuf> {
+pub fn scorecard_path_for(draft_path: &Path) -> Result<PathBuf> {
     let stats = stats_path_for(draft_path, None)?;
     let stem = draft_path
         .file_stem()
@@ -84,13 +84,13 @@ fn axis_score(base: i32, penalties: &[i32], bonuses: &[i32]) -> i32 {
 
 /// 加分候选（`{name, reason}`）。
 #[derive(Debug, Clone)]
-struct BonusCandidate {
-    name: String,
-    reason: String,
+pub struct BonusCandidate {
+    pub name: String,
+    pub reason: String,
 }
 
 /// Python `build_bonus_candidates`（风格侧，截前 4）。
-fn build_bonus_candidates(analysis: &Analysis) -> Vec<BonusCandidate> {
+pub fn build_bonus_candidates(analysis: &Analysis) -> Vec<BonusCandidate> {
     let mut candidates: Vec<BonusCandidate> = Vec::new();
     let summary = &analysis.summary;
     let dialogue = &analysis.dialogue;
@@ -188,14 +188,14 @@ fn build_consistency_bonus_candidates(
 
 /// 评审轴（`{name, score, reason}`）。
 #[derive(Debug, Clone)]
-struct Axis {
-    name: String,
-    score: i32,
-    reason: String,
+pub struct Axis {
+    pub name: String,
+    pub score: i32,
+    pub reason: String,
 }
 
 /// Python `build_axes`：8 条固定轴（名称/说明逐字照抄）。
-fn build_axes(
+pub fn build_axes(
     analysis: &Analysis,
     consistency_snapshot: Option<&StoryConflictSnapshot>,
     alignment_snapshot: Option<&alignment::Alignment>,
@@ -427,7 +427,7 @@ fn build_axes(
 }
 
 /// Python `decide_gate`：门禁（gate / priority / recommendation）。
-fn decide_gate(analysis: &Analysis, axes: &[Axis]) -> (String, String, String) {
+pub fn decide_gate(analysis: &Analysis, axes: &[Axis]) -> (String, String, String) {
     let p1_count = analysis
         .review_reminders
         .iter()
@@ -465,7 +465,7 @@ struct RepeatedRun {
 /// Python `collect_repeated_value_runs`：按 `chapter_sort_key` 排序后收 ≥ min_run 的同值段。
 fn collect_repeated_value_runs(rows: &[(PathBuf, &str)], min_run: usize) -> Vec<RepeatedRun> {
     let mut ordered: Vec<(PathBuf, &str)> = rows.to_vec();
-    ordered.sort_by(|a, b| chapter_sort_key(&a.0).cmp(&chapter_sort_key(&b.0)));
+    ordered.sort_by_key(|a| chapter_sort_key(&a.0));
     let mut runs: Vec<RepeatedRun> = Vec::new();
     let mut current_value: Option<&str> = None;
     let mut current_paths: Vec<PathBuf> = Vec::new();
@@ -650,7 +650,7 @@ fn recommendation_note(recommendation: &str) -> &str {
 }
 
 /// Python `build_scorecard_report`：单章记分卡 markdown（逐字渲染）。
-fn build_scorecard_report(
+pub fn build_scorecard_report(
     engine: &PlanEngine,
     labels: &EndingLabels,
     draft_path: &Path,
@@ -998,7 +998,7 @@ fn build_scorecard_report(
 }
 
 /// Python `build_story_summary`：story 级 SUMMARY.md（逐字渲染）。
-fn build_story_summary(
+pub fn build_story_summary(
     story_dir: &Path,
     scorecards: &[(PathBuf, &Analysis)],
     snapshots: &[(PathBuf, StoryConflictSnapshot)],

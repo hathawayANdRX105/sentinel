@@ -29,3 +29,9 @@ pub fn write_text(path: &Path, content: &str) -> Result<()> {
 pub fn write_json_line(path: &Path, json: &str) -> Result<()> {
     write_text(path, &format!("{json}\n"))
 }
+
+/// 写 JSON 文件（Python `lib.io.write_json`：`json.dumps(payload, ensure_ascii=False, indent=2) + "\n"`）。
+pub fn write_json(path: &Path, value: &serde_json::Value) -> Result<()> {
+    let body = serde_json::to_string_pretty(value)?;
+    write_text(path, &format!("{body}\n"))
+}

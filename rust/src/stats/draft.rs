@@ -47,7 +47,7 @@ pub struct StatsDraftOptions {
 pub type ChapterAnalysis = (PathBuf, Analysis);
 
 /// 章末标签展示名（缺省为 label 本身，对齐 Python `ENDING_LABEL_DISPLAY` 查表）。
-fn ending_display(labels: &EndingLabels, label: &str) -> String {
+pub fn ending_display(labels: &EndingLabels, label: &str) -> String {
     labels
         .display
         .get(label)

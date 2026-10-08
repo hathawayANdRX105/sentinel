@@ -1109,24 +1109,47 @@ fn walk_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// 去掉路径中的 `.`（CurrentDir）分量，对齐 Python `pathlib` 的归一化
+/// （`Path("./a")` → `a`；`Path(".")` 的 rglob 结果不带 `./` 前缀）。
+fn normalize_current_dir(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    if out.as_os_str().is_empty() {
+        PathBuf::from(".")
+    } else {
+        out
+    }
+}
+
 /// 展开输入路径为文件列表（对齐 `iter_target_files`：目录递归收 `.md/.txt`
-/// 且排除生成物/模板，显式文件原样保留，结果按路径排序）。
+/// 且排除生成物/模板，显式文件原样保留，结果按路径排序；路径按 Python
+/// `pathlib` 语义去掉 `.` 分量）。
 pub fn iter_target_files(paths: &[PathBuf]) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
     for raw in paths {
+        let raw = normalize_current_dir(raw);
         if raw.is_dir() {
             let mut found = Vec::new();
-            walk_files(raw, &mut found);
+            walk_files(&raw, &mut found);
             found.retain(|p| {
                 p.extension()
                     .map(|e| e == "md" || e == "txt")
                     .unwrap_or(false)
                     && !is_generated_or_template(p)
             });
-            found.sort();
-            out.extend(found);
+            let mut normalized: Vec<PathBuf> = found
+                .into_iter()
+                .map(|p| normalize_current_dir(&p))
+                .collect();
+            normalized.sort();
+            out.extend(normalized);
         } else if raw.is_file() {
-            out.push(raw.clone());
+            out.push(raw);
         }
     }
     out
@@ -2395,7 +2418,14 @@ fn collect_aa_bb_patterns(
                     e.1.push(stripped.to_string());
                 }
             } else {
-                redup_samples.push((token, vec![stripped.to_string()]));
+                redup_samples.push((
+                    token,
+                    if sample_limit > 0 {
+                        vec![stripped.to_string()]
+                    } else {
+                        Vec::new()
+                    },
+                ));
             }
         }
         if !stripped.contains('，') {
@@ -2430,7 +2460,14 @@ fn collect_aa_bb_patterns(
                         e.1.push(stripped.to_string());
                     }
                 } else {
-                    balanced_samples.push((label, vec![stripped.to_string()]));
+                    balanced_samples.push((
+                        label,
+                        if sample_limit > 0 {
+                            vec![stripped.to_string()]
+                        } else {
+                            Vec::new()
+                        },
+                    ));
                 }
                 break;
             }

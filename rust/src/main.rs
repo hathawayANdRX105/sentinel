@@ -152,6 +152,51 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         sample_limit: usize,
     },
+    /// 草稿章节评审学习日志：learning/*.md + 逐 story SUMMARY.md（对应 Python `reports.learning`）
+    ReportsLearning {
+        /// 草稿章节文件或目录
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 每条规则最多记录的样本行数
+        #[arg(long, default_value_t = 6)]
+        sample_limit: usize,
+    },
+    /// 研究导向章节句子画像：profiles/*.md + 逐 story SUMMARY.md（对应 Python `reports.profiles`）
+    ReportsProfiles {
+        /// 草稿章节文件或目录
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 每节最多渲染的条数
+        #[arg(long, default_value_t = 8)]
+        sample_limit: usize,
+        /// 可选镜像根目录；缺省写小说本地的 draft-stats 树
+        #[arg(long, value_name = "PATH")]
+        output_root: Option<PathBuf>,
+    },
+    /// 跨 Story 模板/词项候选目录：draft-stats/template-catalog/{SUMMARY.md,CATALOG.json}（对应 Python `reports.catalog`）
+    ReportsCatalog {
+        /// novel 目录、draft 目录或草稿章节文件
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+    },
+    /// 跨章模板积压：template-backlog/{SUMMARY.md,CANDIDATES.json}（对应 Python `reports.backlog`）
+    ReportsBacklog {
+        /// 草稿章节文件或目录
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 每条规则最多记录的样本行数
+        #[arg(long, default_value_t = 6)]
+        sample_limit: usize,
+    },
+    /// 故事级评审套件：单章三类报告 + story 级 SUMMARY + review-kit/SUMMARY.md（对应 Python `reports.kit`）
+    ReportsKit {
+        /// 草稿章节文件或目录
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 每条规则最多记录的样本行数
+        #[arg(long, default_value_t = 6)]
+        sample_limit: usize,
+    },
     /// 一致性索引：SQLite/FTS5 构建与查询（对应 Python `consistency` 模块）
     Consistency {
         #[command(subcommand)]
@@ -276,6 +321,82 @@ fn main() -> Result<()> {
                 sample_limit,
             };
             let (rc, printed) = reports::scorecard::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsLearning {
+            paths,
+            sample_limit,
+        } => {
+            let opts = reports::learning::LearningOptions {
+                paths,
+                sample_limit,
+            };
+            let (rc, printed) = reports::learning::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsProfiles {
+            paths,
+            sample_limit,
+            output_root,
+        } => {
+            let opts = reports::profiles::ProfileOptions {
+                paths,
+                sample_limit,
+                output_root,
+            };
+            let (rc, printed) = reports::profiles::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsCatalog { paths } => {
+            let opts = reports::catalog::CatalogOptions { paths };
+            let (rc, printed) = reports::catalog::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsBacklog {
+            paths,
+            sample_limit,
+        } => {
+            let opts = reports::backlog::BacklogOptions {
+                paths,
+                sample_limit,
+            };
+            let (rc, printed) = reports::backlog::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsKit {
+            paths,
+            sample_limit,
+        } => {
+            let opts = reports::kit::KitOptions {
+                paths,
+                sample_limit,
+            };
+            let (rc, printed) = reports::kit::run(&opts)?;
             for path in &printed {
                 println!("{}", path.display());
             }
