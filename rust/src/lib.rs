@@ -7,4 +7,5 @@ pub mod audit;
 pub mod config;
 pub mod input;
 pub mod rules;
+pub mod stats;
 pub mod text;

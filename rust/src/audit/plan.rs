@@ -80,13 +80,13 @@ fn contains_any(text: &str, terms: &[String]) -> bool {
 }
 
 /// 标题结构：(line_no, 规范化标题, 级别)。
-type Heading = (u32, String, u32);
+pub type Heading = (u32, String, u32);
 
 /// 小节行：(line_no, 原始行)。
-type BodyLine = (u32, String);
+pub type BodyLine = (u32, String);
 
 /// 小节容器：键序=首次插入序、值=最后一次赋值（模拟 Python dict 覆盖）。
-struct Sections {
+pub struct Sections {
     names: Vec<String>,
     bodies: Vec<Vec<BodyLine>>,
 }
@@ -197,13 +197,29 @@ impl PlanEngine {
             regs,
         })
     }
+
+    /// `CHAPTER_FUNCTION_RULES`（`plan.function_rules.chapter`）。
+    pub fn chapter_function_rules(&self) -> &HashMap<String, Vec<String>> {
+        &self.cfg.function_rules.chapter
+    }
+
+    /// `ENDING_FUNCTION_RULES`（`plan.function_rules.ending`）。
+    pub fn ending_function_rules(&self) -> &HashMap<String, Vec<String>> {
+        &self.cfg.function_rules.ending
+    }
+
+    /// `CHAPTER_ENDING_GROUP`（`plan.chapter_ending_group`）。
+    pub fn chapter_ending_group(&self) -> &[String] {
+        &self.cfg.chapter_ending_group
+    }
 }
 
 fn normalize_heading(title: &str) -> String {
     title.replace("：", "").replace(":", "").trim().to_string()
 }
 
-fn parse_headings(lines: &[&str]) -> Vec<Heading> {
+/// `parse_headings`：逐行匹配 markdown 标题，产出 (line_no, 标题, 级别)。
+pub fn parse_headings(lines: &[&str]) -> Vec<Heading> {
     let mut headings: Vec<Heading> = Vec::new();
     for (idx, line) in lines.iter().enumerate() {
         if let Ok(Some(caps)) = HEADING_RE.captures(line) {
@@ -215,7 +231,7 @@ fn parse_headings(lines: &[&str]) -> Vec<Heading> {
 }
 
 /// `collect_section_lines`：小节体为标题行之后到下一标题行之前（不含）的行。
-fn collect_section_lines(lines: &[&str], headings: &[Heading]) -> Sections {
+pub fn collect_section_lines(lines: &[&str], headings: &[Heading]) -> Sections {
     let total = lines.len() as u32 + 1;
     let mut sections = Sections {
         names: Vec::new(),
@@ -231,8 +247,19 @@ fn collect_section_lines(lines: &[&str], headings: &[Heading]) -> Sections {
     sections
 }
 
+/// `find_section`：按候选顺序取第一个存在的小节名；都不存在时返回 `(None, 空切片)`。
+pub fn find_section<'a>(
+    sections: &'a Sections,
+    choices: &[&'a str],
+) -> (Option<&'a str>, &'a [BodyLine]) {
+    match sections.find(choices) {
+        Some(name) => (Some(name), sections.body(name)),
+        None => (None, &[]),
+    }
+}
+
 /// `section_text`：小节各行按原样以 \n 连接。
-fn section_text(section: &[BodyLine]) -> String {
+pub fn section_text(section: &[BodyLine]) -> String {
     section
         .iter()
         .map(|line| line.1.as_str())
@@ -274,7 +301,7 @@ fn find_label_blocks(section: &[BodyLine]) -> LabelBlocks {
 }
 
 /// `bullet_lines`：列表项（- / 1. / *）内容（strip 后取捕获组再 strip）。
-fn bullet_lines(section: &[BodyLine]) -> Vec<BodyLine> {
+pub fn bullet_lines(section: &[BodyLine]) -> Vec<BodyLine> {
     section
         .iter()
         .filter_map(|&(line_no, ref line)| {
@@ -288,7 +315,7 @@ fn bullet_lines(section: &[BodyLine]) -> Vec<BodyLine> {
 }
 
 /// `detect_function_label`：按 (-count, label) 排序取首；全 0 时返回默认 "unclear"。
-fn detect_function_label(text: &str, rules: &HashMap<String, Vec<String>>) -> String {
+pub fn detect_function_label(text: &str, rules: &HashMap<String, Vec<String>>) -> String {
     let mut hits: Vec<(String, usize)> = Vec::new();
     for (label, terms) in rules {
         let count = terms.iter().map(|term| text.matches(term).count()).sum();

@@ -1,15 +1,17 @@
 //! Sentinel 小说审查工具（Rust 重写）——CLI 入口。
 //!
 //! 子命令：`rules`（配置校验统计）、`audit-draft`（草稿全量分析；
-//! `--format json` 与 Python `src/audit/draft.py` 对齐，text/markdown 渲染未移植）、
-//! `audit-plan` / `audit-concept`（大纲与概念卡审查）。
+//! `--format json` 与 Python `src/audit/draft.py` 对齐，text/markdown 渲染字节级移植）、
+//! `audit-plan` / `audit-concept`（大纲与概念卡审查）、
+//! `stats-draft`（章节/滚动窗口镜像统计树）与 `stats-plan` / `stats-concept`
+//! （镜像 markdown 统计树，与 Python `src/stats/*` 对齐）。
 
 use std::path::PathBuf;
 use std::process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use sentinel::{audit, config};
+use sentinel::{audit, config, stats};
 
 /// 小说大纲/草稿审查与统计工具（Rust 重写）。
 #[derive(Parser)]
@@ -52,7 +54,7 @@ enum Command {
         /// 有警告时以退出码 1 结束
         #[arg(long)]
         fail_on_warn: bool,
-        /// 报告输出格式（json 完整对齐；text/markdown 渲染未移植，会显式报错）
+        /// 报告输出格式（三种格式均与 Python 字节级对齐）
         #[arg(long, value_enum, default_value_t = ReportFormat::Text)]
         format: ReportFormat,
         /// 输出文件（json）
@@ -91,6 +93,54 @@ enum Command {
         /// 把模板文件纳入审查
         #[arg(long)]
         include_templates: bool,
+    },
+    /// 计划镜像统计：逐文件 *-stats 报告 + 逐目录 SUMMARY.md（对应 Python `stats.plan`）
+    StatsPlan {
+        /// Plan 文件或目录
+        #[arg(value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 输入 plan 文件或目录（可重复）
+        #[arg(short = 'i', long, value_name = "PATH")]
+        input: Vec<PathBuf>,
+        /// 单文件报告输出（仅在收集到恰好一个 plan 文件时允许）
+        #[arg(short = 'o', long, value_name = "PATH")]
+        output: Option<PathBuf>,
+        /// 镜像统计根目录；缺省写入小说本地的 *-stats 树
+        #[arg(long, value_name = "PATH")]
+        output_root: Option<PathBuf>,
+    },
+    /// 概念卡镜像统计：card-stats 树 + 逐目录 SUMMARY.md（对应 Python `stats.concept`）
+    StatsConcept {
+        /// 概念卡文件或目录（必填）
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 把模板文件纳入审查
+        #[arg(long)]
+        include_templates: bool,
+    },
+    /// 章节镜像统计：章节报告 + 滚动窗口合并 + 逐目录 SUMMARY（对应 Python `stats.draft`）
+    StatsDraft {
+        /// 草稿文件或目录
+        #[arg(value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 输入草稿文件或目录（可重复）
+        #[arg(short = 'i', long, value_name = "PATH")]
+        input: Vec<PathBuf>,
+        /// 单文件章节报告输出（仅在收集到恰好一个章节时允许）
+        #[arg(short = 'o', long, value_name = "PATH")]
+        output: Option<PathBuf>,
+        /// 镜像统计根目录；缺省写入小说本地的 draft-stats 树
+        #[arg(long, value_name = "PATH")]
+        output_root: Option<PathBuf>,
+        /// 每条规则最多记录的样本行数
+        #[arg(long, default_value_t = 3)]
+        sample_limit: usize,
+        /// 滚动章节窗口大小（缺省 2 3；显式 `--window-sizes` 不带值时为空列表）
+        #[arg(long, value_name = "SIZE", num_args = 0..)]
+        window_sizes: Option<Vec<usize>>,
+        /// 禁用从既有卡片、计划、草稿学到的筛选器
+        #[arg(long)]
+        no_corpus_learning: bool,
     },
 }
 
@@ -155,6 +205,49 @@ fn main() -> Result<()> {
                 no_corpus_learning,
             };
             let rc = audit::draft::run(&opts)?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::StatsPlan {
+            paths,
+            input,
+            output,
+            output_root,
+        } => {
+            let rc = stats::plan::run(&paths, &input, output.as_deref(), output_root.as_deref())?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::StatsConcept {
+            paths,
+            include_templates,
+        } => {
+            let rc = stats::concept::run(&paths, include_templates)?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::StatsDraft {
+            paths,
+            input,
+            output,
+            output_root,
+            sample_limit,
+            window_sizes,
+            no_corpus_learning,
+        } => {
+            let opts = stats::draft::StatsDraftOptions {
+                positional: paths,
+                inputs: input,
+                output,
+                output_root,
+                sample_limit,
+                window_sizes: window_sizes.unwrap_or_else(|| vec![2, 3]),
+                no_corpus_learning,
+            };
+            let rc = stats::draft::run(&opts)?;
             if rc != 0 {
                 process::exit(rc);
             }

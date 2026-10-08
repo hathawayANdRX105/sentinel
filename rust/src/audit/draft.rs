@@ -6,7 +6,7 @@
 //! - 其余结构分析（summary、warned、句长/对白/场面/语料/疲劳/提醒等）在本模块实现，
 //!   语义逐条对齐 `src/audit/draft.py`（含 `Counter.most_common` 平手首现序、
 //!   `round(x, n)` 半偶舍入、码点计数、`min/max` 平手取首等语义坑）；
-//! - text/markdown 渲染函数本阶段不移植（CLI 对应分支报 unimplemented）。
+//! - text/markdown 渲染函数已移植（对齐 Python `format_text_report` / `format_markdown_report` / `_render_report`）。
 //!
 //! JSON 键名与 Python 逐字一致；浮点值经 [`crate::rules::round2`]（2 位）
 //! 与 [`round4f`]（4 位）对齐 CPython `round`。
@@ -22,7 +22,7 @@ use serde::Serialize;
 
 use crate::config::ReviewRules;
 use crate::config::{TemplateRule, TrackedTerm};
-use crate::input::{resolve_inputs, write_json_line};
+use crate::input::{resolve_inputs, write_json_line, write_text};
 use crate::rules::{
     build_custom_template_metrics, build_rule_metrics, build_template_bank,
     build_tracked_term_metrics, density, round2, CompiledRule, CustomTemplateMetric, Hit,
@@ -382,7 +382,8 @@ impl DraftContext {
         })
     }
 
-    fn draft_rules(&self) -> &crate::config::DraftConfig {
+    /// 草稿规则节（模板库/跟踪词等；stats 子命令需要）。
+    pub fn draft_rules(&self) -> &crate::config::DraftConfig {
         &self.rules.draft
     }
 
@@ -4931,11 +4932,11 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
 /// 报告输出格式（对齐 `--format`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReportFormat {
-    /// 纯文本报告（渲染未移植，运行到该分支会报 unimplemented）。
+    /// 纯文本报告（对齐 Python `format_text_report`）。
     Text,
     /// JSON 报告（与 Python `--format json` 完整对齐）。
     Json,
-    /// Markdown 报告（渲染未移植，运行到该分支会报 unimplemented）。
+    /// Markdown 报告（对齐 Python `format_markdown_report`）。
     Markdown,
 }
 
@@ -6086,6 +6087,1597 @@ pub fn analyze_path(
         sample_limit,
     )
 }
+// ---------------------------------------------------------------------------
+// 文本报告（对齐 Python `format_text_report` / `_format_metric_block`）
+
+/// 文本指标行（4 类指标的渲染字段形状一致）。
+struct TextMetric<'a> {
+    name: &'a str,
+    count: usize,
+    per_10k: f64,
+    max_per_10k: f64,
+    note: &'a str,
+    warn: bool,
+    samples: &'a [Hit],
+}
+
+fn text_metric<'a>(
+    name: &'a str,
+    count: usize,
+    per_10k: f64,
+    max_per_10k: f64,
+    note: &'a str,
+    warn: bool,
+    samples: &'a [Hit],
+) -> TextMetric<'a> {
+    TextMetric {
+        name,
+        count,
+        per_10k,
+        max_per_10k,
+        note,
+        warn,
+        samples,
+    }
+}
+
+/// 渲染一个规则指标小节（对齐 Python `_format_metric_block`）。
+fn metric_block_lines(title: &str, metrics: &[TextMetric<'_>], sample_limit: usize) -> Vec<String> {
+    let mut out = vec![format!("{title}:")];
+    for metric in metrics {
+        let status = if metric.warn { "WARN" } else { "OK" };
+        out.push(format!(
+            "  [{status}] {name}: count={count}, per_10k={per_10k:.2}, max={max:.2}  # {note}",
+            name = metric.name,
+            count = metric.count,
+            per_10k = metric.per_10k,
+            max = metric.max_per_10k,
+            note = metric.note,
+        ));
+        for sample in metric.samples.iter().take(sample_limit) {
+            out.push(format!("    L{}: {}", sample.line_no, sample.snippet));
+        }
+    }
+    out
+}
+
+/// 四类指标 → 文本行（字段形状一致；`name/count/per_10k/max_per_10k/note/warn/samples`）。
+fn regex_text_rows(list: &[RegexMetric]) -> Vec<TextMetric<'_>> {
+    list.iter()
+        .map(|m| {
+            text_metric(
+                &m.name,
+                m.count,
+                m.per_10k,
+                m.max_per_10k,
+                &m.note,
+                m.warn,
+                &m.samples,
+            )
+        })
+        .collect()
+}
+
+fn tracked_text_rows(list: &[crate::rules::TrackedMetric]) -> Vec<TextMetric<'_>> {
+    list.iter()
+        .map(|m| {
+            text_metric(
+                &m.name,
+                m.count,
+                m.per_10k,
+                m.max_per_10k,
+                &m.note,
+                m.warn,
+                &m.samples,
+            )
+        })
+        .collect()
+}
+
+fn custom_text_rows(list: &[CustomTemplateMetric]) -> Vec<TextMetric<'_>> {
+    list.iter()
+        .map(|m| {
+            text_metric(
+                &m.name,
+                m.count,
+                m.per_10k,
+                m.max_per_10k,
+                &m.note,
+                m.warn,
+                &m.samples,
+            )
+        })
+        .collect()
+}
+
+fn learned_text_rows(list: &[LearnedFilterMetric]) -> Vec<TextMetric<'_>> {
+    list.iter()
+        .map(|m| {
+            text_metric(
+                &m.name,
+                m.count,
+                m.per_10k,
+                m.max_per_10k,
+                &m.note,
+                m.warn,
+                &m.samples,
+            )
+        })
+        .collect()
+}
+
+/// Python `format_text_report` 的完整移植：把完整 analysis 渲染成文本报告。
+#[must_use]
+pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
+    let s = &a.summary;
+    let mut output: Vec<String> = vec![
+        format!("FILE {}", a.source),
+        format!("chars={}", s.chars),
+        format!("sentences={}", s.sentences),
+        format!("paragraphs={}", s.paragraphs),
+        format!("avg_sentence_chars={}", py_float_str(s.avg_sentence_chars)),
+        format!("short_sentences={}", s.short_sentences),
+        format!("very_short_sentences={}", s.very_short_sentences),
+        format!(
+            "short_sentence_ratio={}",
+            py_float_str(s.short_sentence_ratio)
+        ),
+        format!("quote_ratio={}", py_float_str(s.quote_ratio)),
+        format!("warn_sections={}", s.warn_sections),
+    ];
+
+    // hard_flags
+    output.push("hard_flags:".into());
+    output.push(format!("  count={}", a.hard_flags.len()));
+    for item in a.hard_flags.iter().take(sample_limit * 8) {
+        let mut line = format!("    [{}] {}: count={}", item.section, item.name, item.count);
+        if let Some(per_10k) = item.per_10k {
+            line.push_str(&format!(", per_10k={}", py_float_str(per_10k)));
+        }
+        line.push_str(&format!("  # {}", item.note));
+        if !item.sample.is_empty() {
+            line.push_str(&format!(" | {}", item.sample));
+        }
+        output.push(line);
+    }
+
+    // review_reminders
+    output.push("review_reminders:".into());
+    output.push(format!("  count={}", a.review_reminders.len()));
+    for item in a.review_reminders.iter().take(sample_limit * 4) {
+        output.push(format!(
+            "    [{}] {} {}  # {}",
+            item.priority, item.category, item.title, item.reason
+        ));
+        output.push(format!("      check: {}", item.check));
+        output.push(format!("      action: {}", item.action));
+        for evidence in item.evidence.iter().take(sample_limit) {
+            output.push(format!("      evidence: {evidence}"));
+        }
+    }
+
+    // style_fatigue
+    output.push("style_fatigue:".into());
+    output.push(format!("  count={}", a.style_fatigue.len()));
+    for item in &a.style_fatigue {
+        output.push(format!(
+            "    [{}] {}: count={}  # {}",
+            item.status, item.family, item.count, item.risk
+        ));
+        output.push(format!("      reduce: {}", item.reduce));
+        for evidence in item.evidence.iter().take(sample_limit) {
+            output.push(format!("      evidence: {evidence}"));
+        }
+    }
+
+    // fatigue_windows
+    output.push("fatigue_windows:".into());
+    output.push(format!(
+        "  count={}, shown={}",
+        a.fatigue_window_count,
+        a.fatigue_windows.len()
+    ));
+    for item in a.fatigue_windows.iter().take(sample_limit) {
+        let roles = format_short_roles(&item.roles, ",");
+        output.push(format!(
+            "    S{}-{} L{}-{} score={} reasons={} roles={}",
+            item.start_index,
+            item.end_index,
+            item.start_line,
+            item.end_line,
+            item.score,
+            item.reasons.join(","),
+            roles
+        ));
+        output.push(format!("      suggestion: {}", item.suggestion));
+        let sample = item
+            .sample
+            .iter()
+            .take(5)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" | ");
+        output.push(format!("      sample: {sample}"));
+    }
+
+    // ba_operation_contexts
+    output.push("ba_operation_contexts:".into());
+    output.push(format!(
+        "  [{}] types={}",
+        if a.ba_operation_contexts.iter().any(|c| c.warn) {
+            "WARN"
+        } else {
+            "OK"
+        },
+        a.ba_operation_contexts.len()
+    ));
+    for item in a.ba_operation_contexts.iter().take(sample_limit * 3) {
+        output.push(format!(
+            "    {} {}: count={} suggestion={}",
+            if item.warn { "WARN" } else { "WATCH" },
+            item.role,
+            item.count,
+            item.suggestion
+        ));
+        for sample in item.samples.iter().take(sample_limit) {
+            output.push(format!(
+                "      - S{} L{} {}: {}",
+                sample.index, sample.line_no, sample.snippet, sample.sentence
+            ));
+        }
+    }
+
+    // 9 个规则指标小节（顺序与 Python 一致）
+    output.extend(metric_block_lines(
+        "tokens",
+        &regex_text_rows(&a.tokens),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "tracked_terms",
+        &tracked_text_rows(&a.tracked_terms),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "patterns",
+        &regex_text_rows(&a.patterns),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "phrases",
+        &regex_text_rows(&a.phrases),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "modifiers",
+        &regex_text_rows(&a.modifiers),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "punctuation",
+        &regex_text_rows(&a.punctuation),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "punctuation_combos",
+        &regex_text_rows(&a.punctuation_combos),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "custom_templates",
+        &custom_text_rows(&a.custom_templates),
+        sample_limit,
+    ));
+    output.extend(metric_block_lines(
+        "learned_filters",
+        &learned_text_rows(&a.learned_filters),
+        sample_limit,
+    ));
+
+    // corpus_profile
+    let p = &a.corpus_profile;
+    output.push("corpus_profile:".into());
+    output.push(format!(
+        "  [{}] sources={} chars={} draft_chars={}",
+        if p.enabled { "OK" } else { "OFF" },
+        p.source_count,
+        p.chars,
+        p.draft_chars
+    ));
+    if let BaselineJson::Values(baseline) = &p.sentence_length_baseline {
+        output.push(format!(
+            "  baseline_sentence_chars: p10={}, p25={}, median={}, avg={}, short_ratio={}",
+            baseline.p10_chars,
+            baseline.p25_chars,
+            baseline.median_chars,
+            py_float_str(baseline.avg_chars),
+            py_float_str(baseline.short_ratio)
+        ));
+    }
+    for item in p.learned_sentence_leads.iter().take(sample_limit) {
+        output.push(format!(
+            "    learned_lead {}: count={}, corpus_per_10k={}",
+            item.phrase,
+            item.count,
+            py_float_str(item.corpus_per_10k)
+        ));
+    }
+    for item in p.learned_aa_bb_shapes.iter().take(sample_limit) {
+        output.push(format!(
+            "    learned_aa_bb {}: count={}",
+            item.name, item.count
+        ));
+    }
+
+    // tracked_term_categories
+    output.push("tracked_term_categories:".into());
+    output.push(format!(
+        "  [{}] active_categories={}",
+        if a.tracked_term_categories.iter().any(|c| c.warn) {
+            "WARN"
+        } else {
+            "OK"
+        },
+        a.tracked_term_categories.len()
+    ));
+    for item in a.tracked_term_categories.iter().take(sample_limit * 4) {
+        output.push(format!(
+            "    {}: count={}, active_terms={}, warn_terms={}",
+            item.category, item.count, item.active_terms, item.warn_terms
+        ));
+        for term in item.top_terms.iter().take(3) {
+            output.push(format!(
+                "      - {}: count={}, per_10k={}, warn={}",
+                term.term,
+                term.count,
+                py_float_str(term.per_10k),
+                if term.warn { "Y" } else { "N" }
+            ));
+        }
+    }
+
+    // tracked_term_windows
+    output.push("tracked_term_windows:".into());
+    output.push(format!(
+        "  count={}, shown={}",
+        a.tracked_term_window_count,
+        a.tracked_term_windows.len()
+    ));
+    for item in a.tracked_term_windows.iter().take(sample_limit) {
+        let terms = format_tracked_term_counts(&item.terms, ",");
+        output.push(format!(
+            "    S{}-{} L{}-{} score={} reasons={} terms={}",
+            item.start_index,
+            item.end_index,
+            item.start_line,
+            item.end_line,
+            item.score,
+            item.reasons.join(","),
+            terms
+        ));
+        output.push(format!("      suggestion: {}", item.suggestion));
+        let sample = item
+            .sample
+            .iter()
+            .take(5)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" | ");
+        output.push(format!("      sample: {sample}"));
+    }
+
+    // 短语计数小节（标题 + `[WARN|OK] key=N` + `短语: 计数` 行）
+    let phrase_block =
+        |output: &mut Vec<String>, title: &str, key: &str, items: &[PhraseCount], limit: usize| {
+            output.push(format!("{title}:"));
+            output.push(format!(
+                "  [{}] {key}={}",
+                if items.is_empty() { "OK" } else { "WARN" },
+                items.len()
+            ));
+            for item in items.iter().take(limit) {
+                output.push(format!("    {}: {}", item.phrase, item.count));
+            }
+        };
+    phrase_block(
+        &mut output,
+        "sentence_starts",
+        "repeated_sentence_leads",
+        &a.sentence_starts,
+        sample_limit * 3,
+    );
+    phrase_block(
+        &mut output,
+        "subject_leads",
+        "repeated_subject_leads",
+        &a.subject_leads,
+        sample_limit * 4,
+    );
+    phrase_block(
+        &mut output,
+        "paragraph_leads",
+        "repeated_paragraph_leads",
+        &a.paragraph_leads,
+        sample_limit * 4,
+    );
+    phrase_block(
+        &mut output,
+        "sentence_patterns",
+        "repeated_sentence_skeletons",
+        &a.sentence_patterns,
+        sample_limit * 4,
+    );
+    phrase_block(
+        &mut output,
+        "judgement_endings",
+        "repeated_judgement_endings",
+        &a.judgement_endings,
+        sample_limit * 4,
+    );
+
+    // judgement_contexts
+    output.push("judgement_contexts:".into());
+    output.push(format!(
+        "  [{}] contexts={}",
+        if a.judgement_contexts.iter().any(|c| c.warn) {
+            "WARN"
+        } else {
+            "OK"
+        },
+        a.judgement_contexts.len()
+    ));
+    for item in &a.judgement_contexts {
+        let terms = if item.top_terms.is_empty() {
+            "无".to_string()
+        } else {
+            item.top_terms
+                .iter()
+                .map(|t| format!("{}:{}", t.term, t.count))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let status = if item.warn {
+            "WARN"
+        } else if item.watch {
+            "WATCH"
+        } else {
+            "OK"
+        };
+        output.push(format!(
+            "    {status} {}: count={} terms={}",
+            item.label, item.count, terms
+        ));
+        for sample in item.samples.iter().take(sample_limit) {
+            output.push(format!(
+                "      S{} L{} {}: {}",
+                sample.index,
+                sample.line_no,
+                sample.terms.join(","),
+                sample.text
+            ));
+        }
+    }
+
+    phrase_block(
+        &mut output,
+        "clause_prefixes",
+        "repeated_clause_prefixes",
+        &a.clause_prefixes,
+        sample_limit * 4,
+    );
+    phrase_block(
+        &mut output,
+        "parallel_clauses",
+        "repeated_parallel_clauses",
+        &a.parallel_clauses,
+        sample_limit * 4,
+    );
+
+    // aa_bb_patterns
+    output.push("aa_bb_patterns:".into());
+    output.push(format!(
+        "  [{}] aa_bb_patterns={}",
+        if a.aa_bb_patterns.iter().any(|p| p.warn) {
+            "WARN"
+        } else {
+            "OK"
+        },
+        a.aa_bb_patterns.len()
+    ));
+    for item in a.aa_bb_patterns.iter().take(sample_limit * 4) {
+        output.push(format!(
+            "    {} {} {}: count={}  # {}",
+            if item.warn { "WARN" } else { "OK" },
+            item.pattern_type,
+            item.name,
+            item.count,
+            item.note
+        ));
+        for sample in item.samples.iter().take(sample_limit) {
+            output.push(format!("      - {sample}"));
+        }
+    }
+
+    // sentence_lengths
+    let sl = &a.sentence_lengths;
+    output.push("sentence_lengths:".into());
+    output.push(format!(
+        "  [{}] count={}, min={}, p10={}, p25={}, median={}, avg={}, max={}",
+        if sl.warn { "WARN" } else { "OK" },
+        sl.count,
+        sl.min_chars,
+        sl.p10_chars,
+        sl.p25_chars,
+        sl.median_chars,
+        py_float_str(sl.avg_chars),
+        sl.max_chars
+    ));
+    output.push(format!(
+        "    short_count={}, very_short_count={}, short_ratio={}, short_runs={}",
+        sl.short_count,
+        sl.very_short_count,
+        py_float_str(sl.short_ratio),
+        sl.short_runs.len()
+    ));
+    for item in sl.short_sentences.iter().take(sample_limit * 4) {
+        output.push(format!(
+            "    S{} L{} chars={}: {}",
+            item.index, item.line_no, item.chars, item.text
+        ));
+    }
+    for item in sl.short_runs.iter().take(sample_limit) {
+        let roles = format_short_roles(&item.roles, ",");
+        output.push(format!(
+            "    run S{}-{} L{}-{} avg={}: {}",
+            item.start_index,
+            item.end_index,
+            item.start_line,
+            item.end_line,
+            py_float_str(item.avg_chars),
+            item.sample.join(" | ")
+        ));
+        if !roles.is_empty() {
+            output.push(format!("      roles: {roles}"));
+        }
+        if !item.suggestion.is_empty() {
+            output.push(format!("      suggestion: {}", item.suggestion));
+        }
+    }
+
+    // terms / short_phrases
+    output.push("terms:".into());
+    output.push(format!(
+        "  [{}] repeated_terms={}",
+        if a.terms.is_empty() { "OK" } else { "WARN" },
+        a.terms.len()
+    ));
+    for item in a.terms.iter().take(sample_limit * 5) {
+        output.push(format!("    {}: {}", item.term, item.count));
+    }
+    output.push("short_phrases:".into());
+    output.push(format!(
+        "  [{}] repeated_short_phrases={}",
+        if a.short_phrases.is_empty() {
+            "OK"
+        } else {
+            "WARN"
+        },
+        a.short_phrases.len()
+    ));
+    for item in a.short_phrases.iter().take(sample_limit * 5) {
+        output.push(format!("    {}: {}", item.term, item.count));
+    }
+
+    // dialogue
+    let d = &a.dialogue;
+    output.push("dialogue:".into());
+    let runs = &d.consecutive_quote_paragraph_runs;
+    output.push(format!(
+        "  [{}] consecutive_quote_paragraph_runs={}",
+        if runs.is_empty() { "OK" } else { "WARN" },
+        runs.len()
+    ));
+    for item in runs.iter().take(sample_limit) {
+        output.push(format!(
+            "    paragraph {}-{}: {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            item.sample.join(" | ")
+        ));
+    }
+    let short_runs = &d.short_quote_runs;
+    output.push(format!(
+        "  [{}] short_quote_runs={}",
+        if short_runs.is_empty() { "OK" } else { "WARN" },
+        short_runs.len()
+    ));
+    for item in short_runs.iter().take(sample_limit) {
+        output.push(format!(
+            "    paragraph {}-{}: avg_len={} | {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            py_float_str(item.avg_len),
+            item.sample.join(" | ")
+        ));
+    }
+    let question_runs = &d.question_ping_pong;
+    output.push(format!(
+        "  [{}] question_ping_pong={}",
+        if question_runs.is_empty() {
+            "OK"
+        } else {
+            "WARN"
+        },
+        question_runs.len()
+    ));
+    for item in question_runs.iter().take(sample_limit) {
+        output.push(format!(
+            "    paragraph {}-{}: {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            item.sample.join(" | ")
+        ));
+    }
+    let ping_pong_runs = &d.quote_ping_pong;
+    output.push(format!(
+        "  [{}] quote_ping_pong={}",
+        if ping_pong_runs.is_empty() {
+            "OK"
+        } else {
+            "WARN"
+        },
+        ping_pong_runs.len()
+    ));
+    for item in ping_pong_runs.iter().take(sample_limit) {
+        output.push(format!(
+            "    paragraph {}-{}: avg_len={} | {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            py_float_str(item.avg_len),
+            item.sample.join(" | ")
+        ));
+    }
+    let axis_gaps = &d.dialogue_axis_gaps;
+    output.push(format!(
+        "  [{}] dialogue_axis_gaps={}",
+        if axis_gaps.is_empty() { "OK" } else { "WARN" },
+        axis_gaps.len()
+    ));
+    for item in axis_gaps.iter().take(sample_limit) {
+        output.push(format!(
+            "    S{}-{} L{}-{} score={} reasons={}",
+            item.start_index,
+            item.end_index,
+            item.start_line,
+            item.end_line,
+            item.score,
+            item.reasons.join(",")
+        ));
+        output.push(format!("      suggestion: {}", item.suggestion));
+        let sample = item
+            .sample
+            .iter()
+            .take(4)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" | ");
+        output.push(format!("      sample: {sample}"));
+    }
+    let turns = &d.alternating_speaker_runs;
+    output.push(format!(
+        "  [{}] alternating_speaker_runs={}",
+        if turns.is_empty() { "OK" } else { "WARN" },
+        turns.len()
+    ));
+    for item in turns.iter().take(sample_limit) {
+        output.push(format!(
+            "    paragraph {}: {}",
+            item.paragraph, item.pattern
+        ));
+    }
+    output.push(format!(
+        "  [INFO] quote_paragraph_ratio={}",
+        py_float_str(d.quote_paragraph_ratio)
+    ));
+    output.push(format!(
+        "  [INFO] dense_quote_run_max={}",
+        d.dense_quote_run_max
+    ));
+    output.push(format!(
+        "  [INFO] dense_quote_run_count={}",
+        d.dense_quote_run_count
+    ));
+
+    // dominant_punctuation
+    output.push("dominant_punctuation:".into());
+    output.push(format!(
+        "  [{}] active_marks={}",
+        if a.dominant_punctuation.is_empty() {
+            "OK"
+        } else {
+            "WARN"
+        },
+        a.dominant_punctuation.len()
+    ));
+    for item in a.dominant_punctuation.iter().take(sample_limit * 4) {
+        output.push(format!(
+            "    {}: count={}, per_10k={}",
+            item.mark,
+            item.count,
+            py_float_str(item.per_10k)
+        ));
+    }
+
+    // modifier_pressure（只展示 total > 0 的行）
+    output.push("modifier_pressure:".into());
+    let active: Vec<&ModifierPressure> = a
+        .modifier_pressure
+        .iter()
+        .filter(|item| item.total > 0)
+        .collect();
+    output.push(format!(
+        "  [{}] active_groups={}",
+        if active.iter().any(|item| item.warn) {
+            "WARN"
+        } else {
+            "OK"
+        },
+        active.len()
+    ));
+    for item in active.iter().take(sample_limit) {
+        output.push(format!(
+            "    {}: total={}, dense_sentences={}, warn={}",
+            item.label,
+            item.total,
+            item.dense_sentences,
+            if item.warn { "Y" } else { "N" }
+        ));
+    }
+
+    // ending
+    output.push("ending:".into());
+    output.push(format!(
+        "  [{}] tail_template_check",
+        if a.ending.warn { "WARN" } else { "OK" }
+    ));
+    let image_summary = if a.ending.image_terms.is_empty() {
+        "无".to_string()
+    } else {
+        a.ending
+            .image_terms
+            .iter()
+            .map(|t| format!("{}:{}", t.term, t.count))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let flow_summary = if a.ending.flow_terms.is_empty() {
+        "无".to_string()
+    } else {
+        a.ending
+            .flow_terms
+            .iter()
+            .map(|t| format!("{}:{}", t.term, t.count))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    output.push(format!("    image_terms={image_summary}"));
+    output.push(format!("    flow_terms={flow_summary}"));
+
+    // template_candidates
+    output.push("template_candidates:".into());
+    output.push(format!("  count={}", a.template_candidates.len()));
+    for item in a.template_candidates.iter().take(sample_limit * 6) {
+        let mut line = format!(
+            "    [{}] {} x{}  # {}",
+            item.candidate_type, item.name, item.count, item.note
+        );
+        if !item.sample.is_empty() {
+            line.push_str(&format!(" | {}", item.sample));
+        }
+        output.push(line);
+    }
+
+    output.join("\n")
+}
+
+/// Python `Path(str(source)).stem`：markdown 报告标题与多文件输出命名。
+fn path_stem(source: &str) -> String {
+    Path::new(source)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// 报告分发（对齐 Python `_render_report`）：markdown 标题取 source 的 stem
+/// （空时回退 source），text 走 sample_limit；JSON 由调用方直接序列化。
+#[must_use]
+pub fn render_report(a: &Analysis, format: ReportFormat, sample_limit: usize) -> String {
+    debug_assert!(
+        format != ReportFormat::Json,
+        "JSON 分支由调用方 serde 序列化，不走渲染"
+    );
+    if format == ReportFormat::Markdown {
+        let title = path_stem(&a.source);
+        return format_markdown_report(a, if title.is_empty() { None } else { Some(&title) });
+    }
+    format_text_report(a, sample_limit)
+}
+// ---------------------------------------------------------------------------
+// Markdown 报告（对齐 Python `format_markdown_report` / `_markdown_table_cell`）
+
+/// Markdown 表格单元格净化：换行 → 空格，`|` → `\|`（对齐 `_markdown_table_cell`）。
+fn markdown_table_cell(value: &str) -> String {
+    value.replace('\n', " ").replace('|', "\\|")
+}
+
+/// `add_metric_section` 的一行指标（各指标类型字段形状一致）。
+struct MdMetric<'a> {
+    name: &'a str,
+    count: usize,
+    per_10k: f64,
+    max_per_10k: f64,
+    warn: bool,
+    samples: &'a [Hit],
+}
+
+/// 渲染一条规则指标小节（对齐 Python `add_metric_section`）。
+fn metric_section_lines(header: &str, metrics: &[MdMetric<'_>]) -> Vec<String> {
+    let mut lines = vec![format!("## {header}")];
+    if metrics.is_empty() {
+        lines.push("- 无".into());
+        lines.push(String::new());
+        return lines;
+    }
+    for metric in metrics {
+        let status = if metric.warn { "WARN" } else { "OK" };
+        lines.push(format!(
+            "- `{status}` `{}` count=`{}` per_10k=`{}` max=`{}`",
+            metric.name,
+            metric.count,
+            py_float_str(metric.per_10k),
+            py_float_str(metric.max_per_10k)
+        ));
+        if let Some(sample) = metric.samples.first() {
+            lines.push(format!("  样例：`L{}` {}", sample.line_no, sample.snippet));
+        }
+    }
+    lines.push(String::new());
+    lines
+}
+
+/// 规则指标行 → `MdMetric` 行（`RegexMetric` 与 markdown 小节同形状）。
+fn regex_metric_rows(items: &[crate::rules::RegexMetric]) -> Vec<MdMetric<'_>> {
+    items
+        .iter()
+        .map(|m| MdMetric {
+            name: &m.name,
+            count: m.count,
+            per_10k: m.per_10k,
+            max_per_10k: m.max_per_10k,
+            warn: m.warn,
+            samples: &m.samples,
+        })
+        .collect()
+}
+
+/// 对齐 Python `format_markdown_report`：把完整 analysis 渲染成 Markdown 报告。
+/// `title` 为 None 时回退 `analysis.source`（对齐 `title or analysis["source"]`）。
+#[must_use]
+pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
+    let s = &a.summary;
+    let title = title.unwrap_or(&a.source);
+    let ending_image_md = a
+        .ending
+        .image_terms
+        .iter()
+        .map(|t| format!("{} x{}", t.term, t.count))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ending_flow_md = a
+        .ending
+        .flow_terms
+        .iter()
+        .map(|t| format!("{} x{}", t.term, t.count))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut lines: Vec<String> = vec![format!("# {title}"), String::new()];
+
+    // ## 概览
+    lines.push("## 概览".into());
+    lines.push(format!("- 来源：`{}`", a.source));
+    lines.push(format!("- 字数：`{}`", s.chars));
+    lines.push(format!("- 句子数：`{}`", s.sentences));
+    lines.push(format!("- 段落数：`{}`", s.paragraphs));
+    lines.push(format!(
+        "- 句均字数：`{}`",
+        py_float_str(s.avg_sentence_chars)
+    ));
+    lines.push(format!("- 短句数：`{}`", s.short_sentences));
+    lines.push(format!("- 极短句数：`{}`", s.very_short_sentences));
+    lines.push(format!(
+        "- 短句占比：`{}`",
+        py_float_str(s.short_sentence_ratio)
+    ));
+    lines.push(format!("- 引号占比：`{}`", py_float_str(s.quote_ratio)));
+    lines.push(format!("- 警告分区数：`{}`", s.warn_sections));
+    lines.push(format!(
+        "- 总体状态：`{}`",
+        if a.warned { "WARN" } else { "OK" }
+    ));
+    lines.push(String::new());
+
+    // ## 审查提醒
+    lines.push("## 审查提醒".into());
+    if !a.review_reminders.is_empty() {
+        for item in a.review_reminders.iter().take(8) {
+            let mut line = format!(
+                "- `{}` `{}` {}：{} 检查：{} 动作：{}",
+                item.priority, item.category, item.title, item.reason, item.check, item.action
+            );
+            if !item.evidence.is_empty() {
+                let evidence = item
+                    .evidence
+                    .iter()
+                    .map(|v| markdown_table_cell(v))
+                    .collect::<Vec<_>>()
+                    .join("；");
+                line.push_str(&format!(" 证据：{evidence}"));
+            }
+            lines.push(line);
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    // ## 句式疲劳雷达
+    lines.push("## 句式疲劳雷达".into());
+    if !a.style_fatigue.is_empty() {
+        lines.push("| 状态 | 句式家族 | 数量 | 风险 | 减少方式 | 证据 |".into());
+        lines.push("|---|---|---:|---|---|---|".into());
+        for item in &a.style_fatigue {
+            let joined = item
+                .evidence
+                .iter()
+                .map(|v| markdown_table_cell(v))
+                .collect::<Vec<_>>()
+                .join("；");
+            let evidence = if joined.is_empty() {
+                "无".into()
+            } else {
+                joined
+            };
+            lines.push(format!(
+                "| `{}` | {} | `{}` | {} | {} | {evidence} |",
+                item.status,
+                markdown_table_cell(&item.family),
+                item.count,
+                markdown_table_cell(&item.risk),
+                markdown_table_cell(&item.reduce)
+            ));
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    // ## 局部疲劳窗口
+    lines.push("## 局部疲劳窗口".into());
+    if !a.fatigue_windows.is_empty() {
+        let shown = a.fatigue_windows.len().min(8);
+        lines.push(format!(
+            "- 命中总数：`{}`；展示：`{}`",
+            a.fatigue_window_count, shown
+        ));
+        for item in a.fatigue_windows.iter().take(shown) {
+            let roles = format_short_roles(&item.roles, "，");
+            lines.push(format!(
+                "- `S{}-{}` `L{}-{}` score=`{}`：{}",
+                item.start_index,
+                item.end_index,
+                item.start_line,
+                item.end_line,
+                item.score,
+                markdown_table_cell(&item.reasons.join("、"))
+            ));
+            if !roles.is_empty() {
+                lines.push(format!("  类型：{}", markdown_table_cell(&roles)));
+            }
+            if !item.suggestion.is_empty() {
+                lines.push(format!("  建议：{}", markdown_table_cell(&item.suggestion)));
+            }
+            let sample = item
+                .sample
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" | ");
+            lines.push(format!("  样例：{}", markdown_table_cell(&sample)));
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    // ## 把字操作分类
+    lines.push("## 把字操作分类".into());
+    if !a.ba_operation_contexts.is_empty() {
+        for item in &a.ba_operation_contexts {
+            lines.push(format!(
+                "- `{}` `{}` count=`{}`：{}",
+                if item.warn { "WARN" } else { "WATCH" },
+                item.role,
+                item.count,
+                markdown_table_cell(&item.suggestion)
+            ));
+            for sample in item.samples.iter().take(5) {
+                lines.push(format!(
+                    "  - `S{}` `L{}` `{}`：{}",
+                    sample.index,
+                    sample.line_no,
+                    sample.snippet,
+                    markdown_table_cell(&sample.sentence)
+                ));
+            }
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    // ## 优先修项
+    lines.push("## 优先修项".into());
+    if !a.hard_flags.is_empty() {
+        for item in a.hard_flags.iter().take(15) {
+            let mut line = format!(
+                "- `{}` `{}` x{}：{}",
+                item.section, item.name, item.count, item.note
+            );
+            if let Some(per_10k) = item.per_10k {
+                line.push_str(&format!("；per_10k=`{}`", py_float_str(per_10k)));
+            }
+            if !item.sample.is_empty() {
+                line.push_str(&format!("；样例：{}", item.sample));
+            }
+            lines.push(line);
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    lines.extend(metric_section_lines(
+        "高频词",
+        &regex_metric_rows(&a.tokens),
+    ));
+    let tracked_rows: Vec<MdMetric> = a
+        .tracked_terms
+        .iter()
+        .map(|m| MdMetric {
+            name: &m.name,
+            count: m.count,
+            per_10k: m.per_10k,
+            max_per_10k: m.max_per_10k,
+            warn: m.warn,
+            samples: &m.samples,
+        })
+        .collect();
+    lines.extend(metric_section_lines("跟踪词", &tracked_rows));
+    lines.extend(metric_section_lines(
+        "模板句",
+        &regex_metric_rows(&a.patterns),
+    ));
+    lines.extend(metric_section_lines(
+        "短触发词",
+        &regex_metric_rows(&a.phrases),
+    ));
+    lines.extend(metric_section_lines(
+        "黏糊词与判断副词",
+        &regex_metric_rows(&a.modifiers),
+    ));
+    lines.extend(metric_section_lines(
+        "标点",
+        &regex_metric_rows(&a.punctuation),
+    ));
+    lines.extend(metric_section_lines(
+        "组合标点",
+        &regex_metric_rows(&a.punctuation_combos),
+    ));
+    let custom_rows: Vec<MdMetric> = a
+        .custom_templates
+        .iter()
+        .map(|m| MdMetric {
+            name: &m.name,
+            count: m.count,
+            per_10k: m.per_10k,
+            max_per_10k: m.max_per_10k,
+            warn: m.warn,
+            samples: &m.samples,
+        })
+        .collect();
+    lines.extend(metric_section_lines("模板库命中", &custom_rows));
+    let learned_rows: Vec<MdMetric> = a
+        .learned_filters
+        .iter()
+        .map(|m| MdMetric {
+            name: &m.name,
+            count: m.count,
+            per_10k: m.per_10k,
+            max_per_10k: m.max_per_10k,
+            warn: m.warn,
+            samples: &m.samples,
+        })
+        .collect();
+    lines.extend(metric_section_lines("语料学习筛选", &learned_rows));
+
+    // ## 语料学习基线
+    lines.push("## 语料学习基线".into());
+    let p = &a.corpus_profile;
+    if p.enabled {
+        lines.push(format!(
+            "- 学习来源：`{}` 个文件，语料字数=`{}`，草稿字数=`{}`",
+            p.source_count, p.chars, p.draft_chars
+        ));
+        if let BaselineJson::Values(baseline) = &p.sentence_length_baseline {
+            lines.push(format!(
+                "- 草稿句长基线：p10=`{}` p25=`{}` median=`{}` avg=`{}` short_ratio=`{}`",
+                baseline.p10_chars,
+                baseline.p25_chars,
+                baseline.median_chars,
+                py_float_str(baseline.avg_chars),
+                py_float_str(baseline.short_ratio)
+            ));
+        }
+        if !p.learned_sentence_leads.is_empty() {
+            let leads = p
+                .learned_sentence_leads
+                .iter()
+                .take(8)
+                .map(|i| format!("{} x{}", i.phrase, i.count))
+                .collect::<Vec<_>>()
+                .join("，");
+            lines.push(format!("- 学到的句首高频：{leads}"));
+        }
+        if !p.learned_aa_bb_shapes.is_empty() {
+            let shapes = p
+                .learned_aa_bb_shapes
+                .iter()
+                .take(8)
+                .map(|i| format!("{} x{}", i.name, i.count))
+                .collect::<Vec<_>>()
+                .join("，");
+            lines.push(format!("- 学到的 AA/BB 风险：{shapes}"));
+        }
+    } else {
+        lines.push("- 未启用".into());
+    }
+    lines.push(String::new());
+
+    // ## 跟踪词分类
+    lines.push("## 跟踪词分类".into());
+    if !a.tracked_term_categories.is_empty() {
+        for item in &a.tracked_term_categories {
+            lines.push(format!(
+                "- `{}` `{}` count=`{}` active_terms=`{}` warn_terms=`{}`",
+                if item.warn { "WARN" } else { "OK" },
+                item.category,
+                item.count,
+                item.active_terms,
+                item.warn_terms
+            ));
+            for term in item.top_terms.iter().take(5) {
+                lines.push(format!(
+                    "  - `{}` x{} per_10k=`{}` warn=`{}`",
+                    term.term,
+                    term.count,
+                    py_float_str(term.per_10k),
+                    if term.warn { "Y" } else { "N" }
+                ));
+            }
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    // ## 点名局部密度
+    lines.push("## 点名局部密度".into());
+    if !a.tracked_term_windows.is_empty() {
+        let shown = a.tracked_term_windows.len().min(8);
+        lines.push(format!(
+            "- 命中总数：`{}`；展示：`{}`",
+            a.tracked_term_window_count, shown
+        ));
+        for item in a.tracked_term_windows.iter().take(shown) {
+            lines.push(format!(
+                "- `S{}-{}` `L{}-{}` score=`{}`：{}",
+                item.start_index,
+                item.end_index,
+                item.start_line,
+                item.end_line,
+                item.score,
+                markdown_table_cell(&item.reasons.join("、"))
+            ));
+            let terms = format_tracked_term_counts(&item.terms, "，");
+            if !terms.is_empty() {
+                lines.push(format!("  词项：{}", markdown_table_cell(&terms)));
+            }
+            if !item.suggestion.is_empty() {
+                lines.push(format!("  建议：{}", markdown_table_cell(&item.suggestion)));
+            }
+            let sample = item
+                .sample
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" | ");
+            lines.push(format!("  样例：{}", markdown_table_cell(&sample)));
+        }
+    } else {
+        lines.push("- 无".into());
+    }
+    lines.push(String::new());
+
+    // ## 高频词片段 / 结构短语（各取前 15）
+    lines.push("## 高频词片段".into());
+    if a.terms.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in a.terms.iter().take(15) {
+            lines.push(format!("- `{}` x{}", item.term, item.count));
+        }
+    }
+    lines.push(String::new());
+
+    lines.push("## 结构短语".into());
+    if a.short_phrases.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in a.short_phrases.iter().take(15) {
+            lines.push(format!("- `{}` x{}", item.term, item.count));
+        }
+    }
+    lines.push(String::new());
+
+    // ## 句式骨架 / 判断句尾（全量）
+    lines.push("## 句式骨架".into());
+    if a.sentence_patterns.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in &a.sentence_patterns {
+            lines.push(format!("- `{}` x{}", item.phrase, item.count));
+        }
+    }
+    lines.push(String::new());
+
+    lines.push("## 判断句尾".into());
+    if a.judgement_endings.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in &a.judgement_endings {
+            lines.push(format!("- `{}` x{}", item.phrase, item.count));
+        }
+    }
+    lines.push(String::new());
+
+    // ## 判断句上下文
+    lines.push("## 判断句上下文".into());
+    if a.judgement_contexts.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in &a.judgement_contexts {
+            let status = if item.warn {
+                "WARN"
+            } else if item.watch {
+                "WATCH"
+            } else {
+                "OK"
+            };
+            let terms = if item.top_terms.is_empty() {
+                "无".to_string()
+            } else {
+                item.top_terms
+                    .iter()
+                    .map(|t| format!("{} x{}", t.term, t.count))
+                    .collect::<Vec<_>>()
+                    .join("，")
+            };
+            lines.push(format!(
+                "- `{status}` `{}` count=`{}` terms={terms}",
+                item.label, item.count
+            ));
+            for sample in item.samples.iter().take(5) {
+                lines.push(format!(
+                    "  - `S{}` `L{}` `{}`：{}",
+                    sample.index,
+                    sample.line_no,
+                    sample.terms.join(","),
+                    sample.text
+                ));
+            }
+        }
+    }
+    lines.push(String::new());
+
+    // ## 句首重复 / 主语起手 / 段首起手（全量）
+    for (header, items) in [
+        ("句首重复", &a.sentence_starts),
+        ("主语起手", &a.subject_leads),
+        ("段首起手", &a.paragraph_leads),
+    ] {
+        lines.push(format!("## {header}"));
+        if items.is_empty() {
+            lines.push("- 无".into());
+        } else {
+            for item in items {
+                lines.push(format!("- `{}` x{}", item.phrase, item.count));
+            }
+        }
+        lines.push(String::new());
+    }
+
+    // ## 分句骨架 / 并列分句（各取前 15）
+    for (header, items) in [
+        ("分句骨架", &a.clause_prefixes),
+        ("并列分句", &a.parallel_clauses),
+    ] {
+        lines.push(format!("## {header}"));
+        if items.is_empty() {
+            lines.push("- 无".into());
+        } else {
+            for item in items.iter().take(15) {
+                lines.push(format!("- `{}` x{}", item.phrase, item.count));
+            }
+        }
+        lines.push(String::new());
+    }
+
+    // ## AA/BB 式短节奏（取前 15）
+    lines.push("## AA/BB 式短节奏".into());
+    if a.aa_bb_patterns.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in a.aa_bb_patterns.iter().take(15) {
+            lines.push(format!(
+                "- `{}` `{}` `{}` x{}：{}",
+                if item.warn { "WARN" } else { "OK" },
+                item.pattern_type,
+                item.name,
+                item.count,
+                item.note
+            ));
+            if let Some(first) = item.samples.first() {
+                lines.push(format!("  样例：{first}"));
+            }
+        }
+    }
+    lines.push(String::new());
+
+    // ## 逐句字数
+    lines.push("## 逐句字数".into());
+    let sl = &a.sentence_lengths;
+    lines.push(format!(
+        "- 状态：`{}` count=`{}` min=`{}` p10=`{}` p25=`{}` median=`{}` avg=`{}` max=`{}`",
+        if sl.warn { "WARN" } else { "OK" },
+        sl.count,
+        sl.min_chars,
+        sl.p10_chars,
+        sl.p25_chars,
+        sl.median_chars,
+        py_float_str(sl.avg_chars),
+        sl.max_chars
+    ));
+    lines.push(format!(
+        "- 短句：`{}`；极短句：`{}`；短句占比：`{}`；短句连发：`{}`",
+        sl.short_count,
+        sl.very_short_count,
+        py_float_str(sl.short_ratio),
+        sl.short_runs.len()
+    ));
+    if !sl.short_sentences.is_empty() {
+        for item in sl.short_sentences.iter().take(12) {
+            lines.push(format!(
+                "- `S{}` `L{}` `{}字`：{}",
+                item.index, item.line_no, item.chars, item.text
+            ));
+        }
+    }
+    if !sl.short_runs.is_empty() {
+        lines.push("- 短句连发样例：".into());
+        for item in sl.short_runs.iter().take(5) {
+            let roles = format_short_roles(&item.roles, "，");
+            lines.push(format!(
+                "- `S{}-{}` `L{}-{}` avg=`{}`：{}",
+                item.start_index,
+                item.end_index,
+                item.start_line,
+                item.end_line,
+                py_float_str(item.avg_chars),
+                item.sample.join(" | ")
+            ));
+            if !roles.is_empty() {
+                lines.push(format!("  类型：{roles}"));
+            }
+            if !item.suggestion.is_empty() {
+                lines.push(format!("  建议：{}", item.suggestion));
+            }
+        }
+    }
+    if !a.source.contains(" | ") {
+        lines.push(String::new());
+        lines.push("### 每句字数明细".into());
+        for item in &sl.sentences {
+            lines.push(format!(
+                "- `S{}` `L{}` `{}字`：{}",
+                item.index, item.line_no, item.chars, item.text
+            ));
+        }
+    }
+    lines.push(String::new());
+
+    // ## 对话
+    lines.push("## 对话".into());
+    let d = &a.dialogue;
+    lines.push(format!(
+        "- 连续短对白块：`{}`",
+        d.consecutive_quote_paragraph_runs.len()
+    ));
+    for item in d.consecutive_quote_paragraph_runs.iter().take(5) {
+        lines.push(format!(
+            "- 段落 `{}-{}`: {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            item.sample.join(" | ")
+        ));
+    }
+    lines.push(format!("- 短句对白块：`{}`", d.short_quote_runs.len()));
+    for item in d.short_quote_runs.iter().take(5) {
+        lines.push(format!(
+            "- 段落 `{}-{}` 平均句长=`{}`: {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            py_float_str(item.avg_len),
+            item.sample.join(" | ")
+        ));
+    }
+    lines.push(format!("- 问答互顶块：`{}`", d.question_ping_pong.len()));
+    for item in d.question_ping_pong.iter().take(5) {
+        lines.push(format!(
+            "- 段落 `{}-{}`: {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            item.sample.join(" | ")
+        ));
+    }
+    lines.push(format!("- 白话乒乓块：`{}`", d.quote_ping_pong.len()));
+    for item in d.quote_ping_pong.iter().take(5) {
+        lines.push(format!(
+            "- 段落 `{}-{}` 平均句长=`{}`: {}",
+            item.start_paragraph,
+            item.end_paragraph,
+            py_float_str(item.avg_len),
+            item.sample.join(" | ")
+        ));
+    }
+    lines.push(format!("- 对白转轴缺口：`{}`", d.dialogue_axis_gaps.len()));
+    for item in d.dialogue_axis_gaps.iter().take(5) {
+        lines.push(format!(
+            "- `S{}-{}` `L{}-{}` score=`{}`：{}",
+            item.start_index,
+            item.end_index,
+            item.start_line,
+            item.end_line,
+            item.score,
+            markdown_table_cell(&item.reasons.join("、"))
+        ));
+        lines.push(format!("  建议：{}", markdown_table_cell(&item.suggestion)));
+        let sample = item
+            .sample
+            .iter()
+            .take(4)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" | ");
+        lines.push(format!("  样例：{}", markdown_table_cell(&sample)));
+    }
+    lines.push(format!(
+        "- A/B 乒乓：`{}`",
+        d.alternating_speaker_runs.len()
+    ));
+    for item in d.alternating_speaker_runs.iter().take(5) {
+        lines.push(format!("- 段落 `{}`: `{}`", item.paragraph, item.pattern));
+    }
+    lines.push(format!(
+        "- 对话段占比：`{}`",
+        py_float_str(d.quote_paragraph_ratio)
+    ));
+    lines.push(format!("- 最长连续对白块：`{}`", d.dense_quote_run_max));
+    lines.push(format!("- 超长对白块数：`{}`", d.dense_quote_run_count));
+    lines.push(String::new());
+
+    // ## 活跃标点（取前 10）
+    lines.push("## 活跃标点".into());
+    if a.dominant_punctuation.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in a.dominant_punctuation.iter().take(10) {
+            lines.push(format!(
+                "- `{}` x{} per_10k=`{}`",
+                item.mark,
+                item.count,
+                py_float_str(item.per_10k)
+            ));
+        }
+    }
+    lines.push(String::new());
+
+    // ## 形容词 / 动词压力（只展示 total > 0 的行）
+    lines.push("## 形容词 / 动词压力".into());
+    let active: Vec<&ModifierPressure> = a
+        .modifier_pressure
+        .iter()
+        .filter(|item| item.total > 0)
+        .collect();
+    if active.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in active {
+            lines.push(format!(
+                "- `{}` `{}` total=`{}` dense_sentences=`{}`",
+                if item.warn { "WARN" } else { "OK" },
+                item.label,
+                item.total,
+                item.dense_sentences
+            ));
+        }
+    }
+    lines.push(String::new());
+
+    // ## 章末检查
+    lines.push("## 章末检查".into());
+    lines.push(format!(
+        "- 状态：`{}`",
+        if a.ending.warn { "WARN" } else { "OK" }
+    ));
+    if !a.ending.image_terms.is_empty() {
+        lines.push(format!("- 章末意象词：`{ending_image_md}`"));
+    }
+    if !a.ending.flow_terms.is_empty() {
+        lines.push(format!("- 章末流程词：`{ending_flow_md}`"));
+    }
+    let tail = prefix_chars(&a.ending.tail_excerpt, 100);
+    lines.push(format!(
+        "- 章末摘录：{}",
+        if tail.is_empty() {
+            "无"
+        } else {
+            tail.as_str()
+        }
+    ));
+    lines.push(String::new());
+
+    // ## 模版候选（取前 20）
+    lines.push("## 模版候选".into());
+    if a.template_candidates.is_empty() {
+        lines.push("- 无".into());
+    } else {
+        for item in a.template_candidates.iter().take(20) {
+            let mut line = format!(
+                "- `{}` `{}` x{}：{}",
+                item.candidate_type, item.name, item.count, item.note
+            );
+            if !item.sample.is_empty() {
+                line.push_str(&format!("；样例：{}", item.sample));
+            }
+            lines.push(line);
+        }
+    }
+    lines.push(String::new());
+
+    lines.join("\n")
+}
 
 /// `run` 的 CLI 参数（对齐 Python `main` 的 argparse 项）。
 #[derive(Debug, Clone)]
@@ -6098,7 +7690,7 @@ pub struct RunOptions {
     pub sample_limit: usize,
     /// `--fail-on-warn`：有警告时退出码 1。
     pub fail_on_warn: bool,
-    /// `--format`：报告格式（json 已移植；text/markdown 渲染未移植）。
+    /// `--format`：报告格式（json/text/markdown 均对齐 Python）。
     pub format: ReportFormat,
     /// `-o/--output`：输出文件。
     pub output: Option<PathBuf>,
@@ -6150,7 +7742,34 @@ pub fn run(opts: &RunOptions) -> Result<i32> {
             None => println!("{json}"),
         }
     } else {
-        unimplemented!("TODO(A2): 文本/markdown 渲染");
+        let suffix = if opts.format == ReportFormat::Markdown {
+            ".md"
+        } else {
+            ".txt"
+        };
+        match &opts.output {
+            None => {
+                for report in &reports {
+                    println!("{}", render_report(report, opts.format, opts.sample_limit));
+                    println!();
+                }
+            }
+            Some(out_path) => {
+                if reports.len() == 1 {
+                    let rendered = render_report(&reports[0], opts.format, opts.sample_limit);
+                    write_text(out_path, &format!("{rendered}\n"))?;
+                } else {
+                    fs::create_dir_all(out_path)
+                        .with_context(|| format!("无法创建输出目录 {}", out_path.display()))?;
+                    for report in &reports {
+                        let stem = path_stem(&report.source);
+                        let file = out_path.join(format!("{stem}{suffix}"));
+                        let rendered = render_report(report, opts.format, opts.sample_limit);
+                        write_text(&file, &format!("{rendered}\n"))?;
+                    }
+                }
+            }
+        }
     }
     if opts.fail_on_warn && any_warn {
         return Ok(1);
