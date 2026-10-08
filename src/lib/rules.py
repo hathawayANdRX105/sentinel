@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from functools import lru_cache
+from collections.abc import Iterable, Mapping
+from functools import cache
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import yaml
-
 
 DEFAULT_RULES_PATH = Path(__file__).resolve().parents[2] / "configs" / "rules" / "review.yaml"
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_rules_cached(resolved_path: str) -> dict[str, Any]:
     try:
         payload = yaml.safe_load(Path(resolved_path).read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         raise ValueError(f"Invalid review rules YAML: {exc}") from exc
     if not isinstance(payload, dict):
-        raise ValueError("Invalid review rules YAML: root must be a mapping")
+        raise TypeError("Invalid review rules YAML: root must be a mapping")
     return payload
 
 
@@ -39,7 +39,7 @@ def mapping_at(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
             raise ValueError(f"Missing review rules section: {_section_path(tuple(walked))}")
         current = current[key]
     if not isinstance(current, dict):
-        raise ValueError(f"Missing review rules section: {_section_path(keys)}")
+        raise TypeError(f"Missing review rules section: {_section_path(keys)}")
     return current
 
 
@@ -52,7 +52,7 @@ def list_at(payload: dict[str, Any], *keys: str) -> list[Any]:
             raise ValueError(f"Missing review rules section: {_section_path(tuple(walked))}")
         current = current[key]
     if not isinstance(current, list):
-        raise ValueError(f"Missing review rules section: {_section_path(keys)}")
+        raise TypeError(f"Missing review rules section: {_section_path(keys)}")
     return current
 
 

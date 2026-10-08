@@ -8,13 +8,12 @@ import collections
 import json
 from pathlib import Path
 
-from reports import scorecard as build_review_scorecards
-from reports import backlog as build_template_backlog
 from audit import draft as draft_audit
 from lib import rules
 from lib.analysis import build_corpus_profile_for_files
 from lib.io import write_json, write_text
-
+from reports import backlog as build_template_backlog
+from reports import scorecard as build_review_scorecards
 
 YAML_TEMPLATE_TARGET = "configs/rules/review.yaml#draft.template_rules"
 YAML_TERM_TARGET = "configs/rules/review.yaml#draft.tracked_terms"
@@ -97,7 +96,7 @@ def load_bank_names(key: str) -> set[str]:
 
 def load_hardcoded_template_names() -> set[str]:
     names: set[str] = set()
-    for rules in (
+    for rule_group in (
         draft_audit.PATTERN_RULES,
         draft_audit.PHRASE_RULES,
         draft_audit.TOKEN_RULES,
@@ -105,7 +104,7 @@ def load_hardcoded_template_names() -> set[str]:
         draft_audit.COMBO_RULES,
         draft_audit.MODIFIER_RULES,
     ):
-        for item in rules:
+        for item in rule_group:
             if item.get("label"):
                 names.add(str(item["label"]))
             if item.get("name"):
@@ -115,12 +114,12 @@ def load_hardcoded_template_names() -> set[str]:
 
 def load_hardcoded_term_names() -> set[str]:
     names: set[str] = set()
-    for rules in (
+    for rule_group in (
         draft_audit.TOKEN_RULES,
         draft_audit.PHRASE_RULES,
         draft_audit.MODIFIER_RULES,
     ):
-        for item in rules:
+        for item in rule_group:
             if item.get("name"):
                 names.add(str(item["name"]))
     return names

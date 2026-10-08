@@ -1,19 +1,21 @@
 from __future__ import annotations
+
 import tempfile
 import unittest
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 
-from stats import draft as build_draft_stats
-from reports import kit as build_review_kit
-from reports import learning as build_review_learning_logs
-from reports import scorecard as build_review_scorecards
 import consistency as consistency_index
 from audit import draft as draft_audit
 from lib import io as review_io
 from lib import paths as review_paths
+from reports import kit as build_review_kit
+from reports import learning as build_review_learning_logs
+from reports import scorecard as build_review_scorecards
+from stats import draft as build_draft_stats
 
 
 class ReviewOutputTests(unittest.TestCase):

@@ -8,7 +8,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 FIELD_RE = re.compile(r"^\s*-\s*([^：:]+)[：:]\s*(.*)$")
 
@@ -185,9 +184,7 @@ def is_empty_value(value: str) -> bool:
         return True
     if stripped in {"-", "待补充", "TBD"}:
         return True
-    if "已确认 / 待确认" in stripped:
-        return True
-    return False
+    return "已确认 / 待确认" in stripped
 
 
 def audit_card(path: Path) -> list[Warning]:

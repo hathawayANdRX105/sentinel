@@ -7,16 +7,15 @@ import argparse
 import collections
 from pathlib import Path
 
-from stats import draft as build_draft_stats
-from reports import learning as build_review_learning_logs
-from reports import scorecard as build_review_scorecards
-from reports import profiles as build_sentence_profiles
-from reports import backlog as build_template_backlog
 import consistency as consistency_index
-from audit import draft as draft_audit
 from lib import alignment as plan_draft_alignment
 from lib.analysis import analyze_files, build_corpus_profile_for_files
 from lib.io import write_text
+from reports import backlog as build_template_backlog
+from reports import learning as build_review_learning_logs
+from reports import profiles as build_sentence_profiles
+from reports import scorecard as build_review_scorecards
+from stats import draft as build_draft_stats
 
 
 def review_kit_path_for(draft_path: Path) -> Path:

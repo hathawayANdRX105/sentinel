@@ -1,7 +1,6 @@
 from __future__ import annotations
+
 import unittest
-
-
 
 from audit import draft as draft_audit
 from lib import rules

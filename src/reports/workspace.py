@@ -8,21 +8,19 @@ import collections
 import re
 from pathlib import Path
 
-from stats import concept as build_concept_stats
 import consistency as consistency_index
-from stats import draft as build_draft_stats
-from stats import plan as build_plan_stats
-from reports import kit as build_review_kit
-from reports import scorecard as build_review_scorecards
-from reports import catalog as build_template_candidate_catalog
-from reports import backlog as build_template_backlog
 from audit import concept as concept_audit
 from audit import draft as draft_audit
 from audit import plan as plan_audit
 from lib import alignment as plan_draft_alignment
 from lib.analysis import analyze_files
-from lib.paths import collect_chapter_files
-
+from reports import backlog as build_template_backlog
+from reports import catalog as build_template_candidate_catalog
+from reports import kit as build_review_kit
+from reports import scorecard as build_review_scorecards
+from stats import concept as build_concept_stats
+from stats import draft as build_draft_stats
+from stats import plan as build_plan_stats
 
 PLAN_DIR_NAMES = ("arc-plan", "story-plan", "chapter-plan")
 DRIFT_SAMPLE_LIMIT = 6
@@ -166,7 +164,7 @@ def chapter_order_from_path(path_text: str, novel_dir: Path) -> tuple[int, str]:
     path = Path(path_text)
     try:
         _doc_type, _arc, _story, chapter = consistency_index.classify_document(path, novel_dir)
-    except Exception:
+    except (ValueError, IndexError):
         chapter = None
     chapter_name = chapter or path.stem
     match = CHAPTER_ID_RE.search(chapter_name)
@@ -529,9 +527,8 @@ def collect_plan_section(novel_dir: Path) -> dict[str, object]:
                 plan_audit.ENDING_FUNCTION_RULES,
             )
             ending_function_counter[ending_function] += 1
-            _doc_type, _arc, story, chapter = consistency_index.classify_document(path, novel_dir)
+            _doc_type, _arc, story, _chapter = consistency_index.classify_document(path, novel_dir)
             story_key = story or "story1"
-            chapter_key = chapter or path.stem
             chapter_plan_by_story[story_key].append((path, chapter_function, ending_function))
 
     plan_types: list[dict[str, object]] = []

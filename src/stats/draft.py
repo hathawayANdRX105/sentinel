@@ -9,15 +9,16 @@ from pathlib import Path
 
 from audit import draft as draft_audit
 from lib import rules
-from lib.cli import resolve_inputs
 from lib.analysis import analyze_files, build_corpus_profile_for_files
+from lib.cli import resolve_inputs
 from lib.io import write_text
 from lib.paths import (
     chapter_sort_key,
     collect_chapter_files,
+)
+from lib.paths import (
     stats_path_for as default_stats_path_for,
 )
-
 
 ENDING_LABEL_CONFIG = rules.mapping_at(draft_audit.DRAFT_RULES, "ending_labels")
 ENDING_LABEL_RULES = rules.tuple_map(rules.mapping_at(ENDING_LABEL_CONFIG, "rules"))
@@ -191,7 +192,7 @@ def build_group_reports(
     template_bank = draft_audit.load_template_bank(draft_audit.DEFAULT_REVIEW_RULES_PATH)
     term_bank = draft_audit.load_term_bank(draft_audit.DEFAULT_REVIEW_RULES_PATH)
 
-    for _, group_files in groups.items():
+    for group_files in groups.values():
         ordered = sorted(group_files, key=chapter_sort_key)
         chapter_analyses = [(item, analyses_by_path[item]) for item in ordered]
         summary_lines = ["# SUMMARY", "", "## Chapters"]

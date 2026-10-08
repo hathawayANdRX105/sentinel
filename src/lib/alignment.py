@@ -8,7 +8,6 @@ from pathlib import Path
 
 from audit import plan as plan_audit
 
-
 DRAFT_FUNCTION_RULES = {
     "conflict": ("枪", "火力", "埋伏", "子弹", "追", "拦", "伤", "血", "打", "炸"),
     "investigation": ("线索", "证据", "坐标", "记录", "名单", "异常", "确认", "查", "归档"),

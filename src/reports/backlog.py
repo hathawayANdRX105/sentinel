@@ -7,12 +7,11 @@ import argparse
 import collections
 from pathlib import Path
 
-from stats import draft as build_draft_stats
-from reports import learning as build_review_learning_logs
-from reports import scorecard as build_review_scorecards
-from audit import draft as draft_audit
 from lib.analysis import analyze_files, build_corpus_profile_for_files
 from lib.io import write_json, write_text
+from reports import learning as build_review_learning_logs
+from reports import scorecard as build_review_scorecards
+from stats import draft as build_draft_stats
 
 
 def backlog_path_for(draft_path: Path) -> Path:

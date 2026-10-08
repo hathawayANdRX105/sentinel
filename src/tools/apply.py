@@ -6,14 +6,15 @@ This script supports both --dry-run (default) and --apply modes.
 
 from __future__ import annotations
 
-import json
+import argparse
 import collections
+import json
 from pathlib import Path
 from typing import Any
 
 import yaml
-from lib import rules
 
+from lib import rules
 
 YAML_TEMPLATE_TARGET = "configs/rules/review.yaml#draft.template_rules"
 YAML_TERM_TARGET = "configs/rules/review.yaml#draft.tracked_terms"
@@ -39,9 +40,9 @@ def build_plan(catalog: dict[str, Any]) -> list[dict[str, Any]]:
         state = str(item.get("state", ""))
         kind = str(item.get("kind", ""))
 
-        if target.endswith("draft.template_rules") or target.endswith("draft_template_bank.json"):
+        if target.endswith(("draft.template_rules", "draft_template_bank.json")):
             action = "template_bank"
-        elif target.endswith("draft.tracked_terms") or target.endswith("draft_term_bank.json"):
+        elif target.endswith(("draft.tracked_terms", "draft_term_bank.json")):
             action = "term_bank"
         elif target.endswith(".md") or "/rules/" in target:
             action = "guide_or_rule"

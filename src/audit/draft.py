@@ -5,17 +5,18 @@ from __future__ import annotations
 
 import argparse
 import collections
+import itertools
 import json
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from lib import rules
 from lib.cli import resolve_inputs
 from lib.io import write_text
-
 
 RULES = rules.load_rules()
 DRAFT_RULES = rules.mapping_at(RULES, "draft")
@@ -546,7 +547,7 @@ def build_tracked_term_windows(
 
     candidates: list[dict[str, object]] = []
     window_size = TRACKED_TERM_WINDOW_SIZE
-    for start in range(0, max(len(sentence_infos) - window_size + 1, 1)):
+    for start in range(max(len(sentence_infos) - window_size + 1, 1)):
         chunk = sentence_infos[start : start + window_size]
         if len(chunk) < 3:
             continue
@@ -813,7 +814,7 @@ def build_fatigue_windows(sentence_infos: list[SentenceInfo], sample_limit: int)
 
     window_size = 5
     candidates: list[dict[str, object]] = []
-    for start in range(0, max(len(sentence_infos) - window_size + 1, 1)):
+    for start in range(max(len(sentence_infos) - window_size + 1, 1)):
         chunk = sentence_infos[start : start + window_size]
         if len(chunk) < 4:
             continue
@@ -939,7 +940,7 @@ def build_dialogue_axis_gaps(
 
     candidates: list[dict[str, object]] = []
     window_size = 4
-    for start in range(0, max(len(sentence_infos) - window_size + 1, 1)):
+    for start in range(max(len(sentence_infos) - window_size + 1, 1)):
         chunk = sentence_infos[start : start + window_size]
         if len(chunk) < window_size:
             continue
@@ -1091,7 +1092,7 @@ def collect_ngram_terms(
 ) -> list[tuple[str, int]]:
     cleaned = re.sub(r"[^\u4e00-\u9fffA-Za-z]", "", text)
     counts: collections.Counter[str] = collections.Counter()
-    for size, min_count in min_count_by_size.items():
+    for size in min_count_by_size:
         if len(cleaned) < size:
             continue
         for idx in range(len(cleaned) - size + 1):
@@ -1319,7 +1320,7 @@ def collect_parallel_clauses(sentences: list[str]) -> list[tuple[str, int]]:
         if "，" not in sentence:
             continue
         clauses = [item.strip() for item in CLAUSE_SPLIT.split(sentence) if item.strip()]
-        for left, right in zip(clauses, clauses[1:]):
+        for left, right in itertools.pairwise(clauses):
             left_lead = left[:2]
             right_lead = right[:2]
             if len(left_lead) < 2 or len(right_lead) < 2:
@@ -1389,7 +1390,7 @@ def collect_aa_bb_patterns(sentences: list[str], *, sample_limit: int) -> list[d
         if len(clauses) < 3:
             continue
         clause_lengths = [prose_char_count(clause) for clause in clauses]
-        for start in range(0, len(clauses) - 2):
+        for start in range(len(clauses) - 2):
             for end in range(start + 3, min(len(clauses), start + 5) + 1):
                 window = clause_lengths[start:end]
                 if min(window) < 2 or max(window) > 10:
@@ -1440,9 +1441,7 @@ def _is_useful_corpus_term(term: str, category: str) -> bool:
         return False
     if term.count(term[0]) == len(term):
         return False
-    if category == "learned_term" and len(term) == 2 and term not in ALLOWED_SHORT_CORPUS_TERMS:
-        return False
-    return True
+    return not (category == "learned_term" and len(term) == 2 and term not in ALLOWED_SHORT_CORPUS_TERMS)
 
 
 def _learned_patterns_from_terms(
@@ -1918,7 +1917,7 @@ def build_tone_profile(paragraph_infos: list[ParagraphInfo], *, sample_limit: in
         }
         active = [(label, count) for label, count in hits.items() if count > 0]
         if active:
-            label, count = sorted(active, key=lambda item: (-item[1], item[0]))[0]
+            label, count = min(active, key=lambda item: (-item[1], item[0]))
             tone_counter[label] += count
             paragraph_tones.append(label)
             if last_tone and label != last_tone:
@@ -2623,7 +2622,6 @@ def build_review_reminders(analysis: dict[str, object]) -> list[dict[str, object
             }
         )
 
-    pattern_metrics = analysis.get("patterns", [])
     pi_metrics = _metrics_named(
         analysis,
         "patterns",
@@ -4234,12 +4232,6 @@ def format_text_report(analysis: dict[str, object], *, sample_limit: int) -> str
     flow_summary = ", ".join(
         f"{item['term']}:{item['count']}" for item in analysis["ending"]["flow_terms"]
     ) or "无"
-    ending_image_md = ", ".join(
-        f"{item['term']} x{item['count']}" for item in analysis["ending"]["image_terms"]
-    )
-    ending_flow_md = ", ".join(
-        f"{item['term']} x{item['count']}" for item in analysis["ending"]["flow_terms"]
-    )
     output.append(
         f"    image_terms={image_summary}"
     )

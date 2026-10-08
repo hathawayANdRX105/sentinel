@@ -11,7 +11,6 @@ from audit import plan as plan_audit
 from lib.cli import resolve_inputs
 from lib.io import write_text
 
-
 PLAN_DIRS = ("arc-plan", "story-plan", "chapter-plan")
 
 

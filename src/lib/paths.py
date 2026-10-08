@@ -5,7 +5,6 @@ from pathlib import Path
 
 from audit import draft as draft_audit
 
-
 CHAPTER_RE = re.compile(r"ch(\d+)", re.IGNORECASE)
 
 

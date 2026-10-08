@@ -8,12 +8,10 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
 
 from lib import rules
 from lib.cli import resolve_inputs
 from lib.io import write_text
-
 
 PLAN_TYPES = ("arc-plan", "story-plan", "chapter-plan")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -407,10 +405,10 @@ def audit_chapter_plan(sections: dict[str, list[tuple[int, str]]], headings: lis
 
     effective_scene_counts = {name: count for name, count in scene_function_counts.items() if name != "unclear"}
     if len(scene_titles) >= SCENE_MONOTONY_MIN_SCENES and effective_scene_counts:
-        dominant_scene_function, dominant_scene_count = sorted(
+        dominant_scene_function, dominant_scene_count = min(
             effective_scene_counts.items(),
             key=lambda item: (-item[1], item[0]),
-        )[0]
+        )
         if dominant_scene_count >= max(2, len(scene_titles) - SCENE_MONOTONY_MAX_MISSING):
             warnings.append(
                 Warning(

@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 CARD_GLOB = "concept/cards/**/*.md"
 DOC_GLOBS = (
     "concept/cards/**/*.md",
@@ -344,7 +343,7 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
 
     false_positive_hits = [(name, count) for name, count in category_decision_counter.items() if name.endswith("::false_positive")]
     if false_positive_hits:
-        top_name, top_count = sorted(false_positive_hits, key=lambda item: (-item[1], item[0]))[0]
+        top_name, top_count = min(false_positive_hits, key=lambda item: (-item[1], item[0]))
         category = top_name.split("::", 1)[0]
         backlog.append(
             {
@@ -355,7 +354,7 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
 
     designed_keep_hits = [(name, count) for name, count in category_decision_counter.items() if name.endswith("::designed_keep")]
     if designed_keep_hits:
-        top_name, top_count = sorted(designed_keep_hits, key=lambda item: (-item[1], item[0]))[0]
+        top_name, top_count = min(designed_keep_hits, key=lambda item: (-item[1], item[0]))
         category = top_name.split("::", 1)[0]
         target = RULES_TEMPLATE_TARGET
         reason_tail = "说明这类变化应开始沉淀为可保留模式样本。"
@@ -376,7 +375,7 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
 
     confirmed_hits = [(name, count) for name, count in story_decision_counter.items() if name.endswith("::confirmed")]
     if confirmed_hits:
-        top_name, top_count = sorted(confirmed_hits, key=lambda item: (-item[1], item[0]))[0]
+        top_name, top_count = min(confirmed_hits, key=lambda item: (-item[1], item[0]))
         story = top_name.split("::", 1)[0]
         backlog.append(
             {
@@ -387,7 +386,7 @@ def build_feedback_backlog(feedback_history: list[dict[str, str]]) -> list[dict[
 
     watch_hits = [(name, count) for name, count in story_decision_counter.items() if name.endswith("::watch")]
     if watch_hits:
-        top_name, top_count = sorted(watch_hits, key=lambda item: (-item[1], item[0]))[0]
+        top_name, top_count = min(watch_hits, key=lambda item: (-item[1], item[0]))
         story = top_name.split("::", 1)[0]
         backlog.append(
             {
@@ -426,7 +425,6 @@ def build_story_conflict_snapshot_from_path(draft_path: Path, limit: int = 200) 
     finally:
         conn.close()
 
-    feedback_entries = load_feedback_entries(feedback_path)
     feedback_history = read_feedback_history(feedback_path)
     decision_counter: collections.Counter[str] = collections.Counter()
     facet_counter: collections.Counter[str] = collections.Counter()
@@ -702,7 +700,6 @@ def build_index(novel_dir: Path, db_path: Path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         build_schema(conn)
-        entity_name_rows: list[tuple[int, str]] = []
         entity_rows: dict[int, Entity] = {}
 
         for entity in entities:
@@ -1711,7 +1708,7 @@ def print_feedback_summary(conn: sqlite3.Connection, feedback_path: Path, limit:
         print()
 
     if story is not None:
-        print(f"## Story Filter")
+        print("## Story Filter")
         print(f"- story: `{story}`")
         print()
 
