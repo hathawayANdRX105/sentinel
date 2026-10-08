@@ -45,7 +45,14 @@ fn json_path_for(novel_dir: &Path) -> PathBuf {
 fn novel_dir_for_story_dir(story_dir: &Path) -> Option<PathBuf> {
     for parent in story_dir.ancestors().skip(1) {
         if parent.file_name().is_some_and(|name| name == "drafts") {
-            return parent.parent().map(PathBuf::from);
+            // pathlib join 语义：`Path('.') / "draft-stats"` 折叠为 `draft-stats`，
+            // 故 drafts 位于 cwd 根时 novel 根用空路径（join 不产生 `./` 前缀）。
+            let novel = parent.parent().map_or_else(PathBuf::new, PathBuf::from);
+            return Some(if novel.as_os_str() == "." {
+                PathBuf::new()
+            } else {
+                novel
+            });
         }
     }
     None
