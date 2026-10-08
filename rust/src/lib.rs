@@ -4,4 +4,5 @@
 //! 审查（audit）、统计（stats）、一致性（consistency）模块。
 
 pub mod config;
+pub mod rules;
 pub mod text;
