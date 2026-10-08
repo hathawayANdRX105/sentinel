@@ -5,7 +5,9 @@
 
 pub mod audit;
 pub mod config;
+pub mod consistency;
 pub mod input;
+pub mod reports;
 pub mod rules;
 pub mod stats;
 pub mod text;

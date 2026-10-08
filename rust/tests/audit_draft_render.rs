@@ -99,6 +99,21 @@ fn draft_corpus_markdown_stdout_matches_python() {
     );
 }
 
+#[test]
+fn draft_explicit_learn_from_stdout_matches_python() {
+    expect_stdout(
+        &[
+            "audit-draft",
+            "tests/fixtures/draft/drafts/0001-信号.md",
+            "--learn-from",
+            "tests/fixtures/draft/concept/cards",
+            "--format",
+            "text",
+        ],
+        "tests/fixtures/expected/draft-learn-from.stdout.txt",
+    );
+}
+
 /// `--fail-on-warn` 退出码与 Python 一致（有 warn → 1；无 flag → 0）。
 #[test]
 fn draft_fail_on_warn_exit_code_text() {

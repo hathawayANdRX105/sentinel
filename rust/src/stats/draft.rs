@@ -373,6 +373,62 @@ fn build_window_report(
     Ok((out_path, report, window_analysis))
 }
 
+/// Counter（首现序 + 计数，对齐 Python `Counter.most_common` 的稳定 tie-break）。
+///
+/// - `add`：新 key 记入首现序；计数累加（`Counter.__init__/+=`）。
+/// - `items`：**首现插入序** + 当前计数（等价 Python `counter.items()` 遍历序）。
+/// - `most_common`/`most_common_all`：**只按 count 稳定降序**，并列保持首次出现序
+///   （Python `Counter.most_common` 语义，**不可**加 key 二次序）。
+/// - `get`/`count`：缺省 0；`is_empty`：无 key 即空（真值判断）。
+#[derive(Debug, Default)]
+pub struct Ctr {
+    order: Vec<String>,
+    map: std::collections::HashMap<String, usize>,
+}
+
+impl Ctr {
+    /// `Counter.__init__/+=` 语义：新 key 记入首现序；计数累加。
+    pub fn add(&mut self, key: &str, n: usize) {
+        if !self.map.contains_key(key) {
+            self.order.push(key.to_string());
+        }
+        *self.map.entry(key.to_string()).or_insert(0) += n;
+    }
+    /// `Counter.most_common(n)`：计数降序；并列 = 首次出现序。
+    pub fn most_common(&self, n: usize) -> Vec<(String, usize)> {
+        self.most_common_all().into_iter().take(n).collect()
+    }
+    /// `Counter.most_common()`：全部条目（计数降序；并列 = 首次出现序）。
+    pub fn most_common_all(&self) -> Vec<(String, usize)> {
+        let mut items: Vec<(String, usize)> = self
+            .order
+            .iter()
+            .map(|k| (k.clone(), self.map.get(k).copied().unwrap_or(0)))
+            .collect();
+        items.sort_by_key(|item| std::cmp::Reverse(item.1));
+        items
+    }
+    /// `counter.items()` 遍历序：**首现插入序** + 当前计数（不做 count 排序）。
+    pub fn items(&self) -> Vec<(String, usize)> {
+        self.order
+            .iter()
+            .map(|k| (k.clone(), self.map.get(k).copied().unwrap_or(0)))
+            .collect()
+    }
+    /// `Counter[key]` / `Counter.get(key, 0)`：无则 0。
+    pub fn get(&self, key: &str) -> usize {
+        self.map.get(key).copied().unwrap_or(0)
+    }
+    /// `Counter.__getitem__`：缺省 0。
+    pub fn count(&self, key: &str) -> usize {
+        self.map.get(key).copied().unwrap_or(0)
+    }
+    /// 真值判断（Python `if counter:` 语义）。
+    pub fn is_empty(&self) -> bool {
+        self.order.is_empty()
+    }
+}
+
 /// 按父目录分组的 SUMMARY + 滚动窗口（Python `build_group_reports` 移植）。
 fn build_group_reports(
     env: &AnalysisEnv,
@@ -401,30 +457,6 @@ fn build_group_reports(
         Some(a) => a.to_vec(),
         None => env.analyze_chapters(files)?,
     };
-    // Counter（首现序 + 计数，对齐 Python Counter.most_common 的稳定 tie-break）
-    #[derive(Default)]
-    struct Ctr {
-        order: Vec<String>,
-        map: std::collections::HashMap<String, usize>,
-    }
-    impl Ctr {
-        fn add(&mut self, key: &str, n: usize) {
-            if !self.map.contains_key(key) {
-                self.order.push(key.to_string());
-            }
-            *self.map.entry(key.to_string()).or_insert(0) += n;
-        }
-        fn most_common(&self, n: usize) -> Vec<(String, usize)> {
-            let mut items: Vec<(String, usize)> = self
-                .order
-                .iter()
-                .map(|k| (k.clone(), self.map.get(k).copied().unwrap_or(0)))
-                .collect();
-            items.sort_by_key(|item| std::cmp::Reverse(item.1));
-            items.truncate(n);
-            items
-        }
-    }
 
     for group_files in groups.iter().map(|g| &g.1) {
         let mut ordered = group_files.clone();

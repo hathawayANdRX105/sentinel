@@ -4,14 +4,15 @@
 //! `--format json` 与 Python `src/audit/draft.py` 对齐，text/markdown 渲染字节级移植）、
 //! `audit-plan` / `audit-concept`（大纲与概念卡审查）、
 //! `stats-draft`（章节/滚动窗口镜像统计树）与 `stats-plan` / `stats-concept`
-//! （镜像 markdown 统计树，与 Python `src/stats/*` 对齐）。
+//! （镜像 markdown 统计树，与 Python `src/stats/*` 对齐）、
+//! `consistency`（SQLite/FTS5 一致性索引与 13 个子命令，对应 Python `consistency` 模块）。
 
 use std::path::PathBuf;
 use std::process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use sentinel::{audit, config, stats};
+use sentinel::{audit, config, consistency, reports, stats};
 
 /// 小说大纲/草稿审查与统计工具（Rust 重写）。
 #[derive(Parser)]
@@ -142,6 +143,20 @@ enum Command {
         #[arg(long)]
         no_corpus_learning: bool,
     },
+    /// 草稿章节评审记分卡：scorecards/*.md + 逐 story SUMMARY.md（对应 Python `reports.scorecard`）
+    ReportsScorecard {
+        /// 草稿章节文件或目录
+        #[arg(required = true, value_name = "PATH")]
+        paths: Vec<PathBuf>,
+        /// 每条规则最多记录的样本行数
+        #[arg(long, default_value_t = 6)]
+        sample_limit: usize,
+    },
+    /// 一致性索引：SQLite/FTS5 构建与查询（对应 Python `consistency` 模块）
+    Consistency {
+        #[command(subcommand)]
+        cmd: consistency::ConsistencyCmd,
+    },
 }
 
 fn main() -> Result<()> {
@@ -248,6 +263,28 @@ fn main() -> Result<()> {
                 no_corpus_learning,
             };
             let rc = stats::draft::run(&opts)?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsScorecard {
+            paths,
+            sample_limit,
+        } => {
+            let opts = reports::scorecard::ScorecardOptions {
+                paths,
+                sample_limit,
+            };
+            let (rc, printed) = reports::scorecard::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::Consistency { cmd } => {
+            let rc = consistency::run(&cmd)?;
             if rc != 0 {
                 process::exit(rc);
             }
