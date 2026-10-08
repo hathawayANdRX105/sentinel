@@ -122,7 +122,7 @@ impl CompiledRule {
 }
 
 /// `build_rule_metrics` 的一条指标。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RegexMetric {
     pub name: String,
     pub count: usize,
@@ -167,7 +167,7 @@ pub fn build_rule_metrics(
 }
 
 /// `build_tracked_term_metrics` 的单词指标（`category` 在前，对齐 Python dict 字段集合）。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TrackedMetric {
     pub category: String,
     pub name: String,
@@ -180,7 +180,7 @@ pub struct TrackedMetric {
 }
 
 /// 分类聚合里的活跃词行。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TopTerm {
     pub term: String,
     pub count: usize,
@@ -189,7 +189,7 @@ pub struct TopTerm {
 }
 
 /// `tracked_term_categories` 行：分类聚合、活跃词数与前 8 热门词。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CategoryRow {
     pub category: String,
     pub count: usize,
@@ -307,7 +307,7 @@ pub fn build_template_bank(draft: &DraftConfig) -> Vec<TemplateRule> {
 }
 
 /// `custom_templates` 节指标（`category` 字段在末尾，对齐 Python dict 结构）。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CustomTemplateMetric {
     pub name: String,
     pub count: usize,

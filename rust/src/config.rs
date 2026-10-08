@@ -198,12 +198,12 @@ pub struct Lexicon {
     pub paragraph_info_terms: Vec<String>,
     #[serde(default)]
     pub mental_state_terms: Vec<String>,
-    #[serde(default)]
-    pub dialogue_emotion_rules: HashMap<String, Vec<String>>,
+    #[serde(default, deserialize_with = "ordered_term_rules_deserialize")]
+    pub dialogue_emotion_rules: OrderedTermRules,
     #[serde(default)]
     pub character_name_stoplist: Vec<String>,
-    #[serde(default)]
-    pub tone_rules: HashMap<String, Vec<String>>,
+    #[serde(default, deserialize_with = "ordered_term_rules_deserialize")]
+    pub tone_rules: OrderedTermRules,
     #[serde(default)]
     pub battle_action_terms: Vec<String>,
     #[serde(default)]
@@ -212,6 +212,56 @@ pub struct Lexicon {
     pub battle_damage_terms: Vec<String>,
     #[serde(default)]
     pub battle_movement_terms: Vec<String>,
+}
+
+/// 保留 YAML 插入序的「标签 → 词表」映射。
+///
+/// `dialogue_emotion_rules` / `tone_rules` 的首匹配语义依赖 YAML 里的书写顺序
+/// （Python `load_rules` 读的是普通 dict，即插入序）。`serde_yaml::Mapping`
+/// 保留插入序，据此直接转有序 `Vec` 对；不能用 `HashMap`（丢序），也不能
+/// 直接声明 `Vec<(K, V)>`（YAML 值是 mapping，不是 sequence，反序列化失败）。
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OrderedTermRules {
+    pub rules: Vec<(String, Vec<String>)>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderedTermRules {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_yaml::Value::deserialize(deserializer)?;
+        match value {
+            serde_yaml::Value::Mapping(map) => {
+                let mut rules = Vec::with_capacity(map.len());
+                for (key, val) in map.iter() {
+                    let label = key
+                        .as_str()
+                        .map(str::to_string)
+                        .or_else(|| key.as_u64().map(|n| n.to_string()))
+                        .or_else(|| key.as_bool().map(|b| b.to_string()))
+                        .unwrap_or_default();
+                    let terms = match val {
+                        serde_yaml::Value::Sequence(items) => items
+                            .iter()
+                            .filter_map(|item| item.as_str().map(str::to_string))
+                            .collect(),
+                        _ => Vec::new(),
+                    };
+                    rules.push((label, terms));
+                }
+                Ok(Self { rules })
+            }
+            serde_yaml::Value::Null => Ok(Self { rules: Vec::new() }),
+            other => Err(serde::de::Error::custom(format!(
+                "期望 mapping 或 null，实际为: {other:?}"
+            ))),
+        }
+    }
+}
+
+/// `OrderedTermRules` 的 `serde(deserialize_with)` 入口。
+fn ordered_term_rules_deserialize<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<OrderedTermRules, D::Error> {
+    OrderedTermRules::deserialize(deserializer)
 }
 
 /// 章末收束标签，对应 `draft.ending_labels`。
