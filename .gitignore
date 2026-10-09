@@ -2,3 +2,4 @@
 .wt/
 __pycache__/
 /target
+.codegraph/
