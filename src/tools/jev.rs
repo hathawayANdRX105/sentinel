@@ -1,14 +1,24 @@
-//! `tools.jev`：`jev-review` 子命令（P0 原型）。
+//! `tools.jev`：`jev-review` 子命令（P0 精判 + P1 改写闭环）。
 //!
 //! 读取 `audit-draft --format json` 的分析结果，把规则命中的具体句子
 //! 批量提交给 Jev 做语义精判（`jev_noul`：每句「是典型 AI 生成腔」的
 //! 概率），按概率降序输出 top-N 值得改写的句子、来源与改写提示。
+//! 加 `--rewrite` 后，再用生成模型（默认 ferrite 网关的 agnes-3.0-flash）
+//! 对 top-N 逐句改写，输出「原句 → 改写」对照。
 //!
-//! 这是 P0 验证原型：sentinel 核心规则层零改动，Jev 判断作为可选外部层。
-//! 端点凭据来自环境变量（可用 CLI 参数覆盖）：
+//! 这是 P0/P1 验证原型：sentinel 核心规则层零改动，Jev 判断与生成模型
+//! 都是可选外部层。
+//!
+//! Jev 端点凭据来自环境变量（可用 CLI 参数覆盖）：
 //! - `JEV_API_BASE_URL`：Jev 兼容端点（如 `https://…/v1/systemone`）
 //! - `JEV_API_KEY`：Bearer 密钥
 //! - `JEV_MODEL`：模型别名，默认 `jev-latest`
+//!
+//! 改写模型端点凭据（`--rewrite` 时）：`FERRITE_BASE_URL`（默认
+//! `http://127.0.0.1:3211/v1`）、`FERRITE_API_KEY`、`FERRITE_MODEL`
+//! （默认 `agnes-3.0-flash`）。改写请求头伪装成 omp（oh-my-pi）客户端
+//! （User-Agent + x-opencode-*），参考 `~/.omp/agent/models.yml` 的
+//! 客户端标识。
 //!
 //! 协议参考 `@jkudish/jev-mcp` 的 compatible provider：POST
 //! `{model, state, questions}`，响应 `{answers, usage, model}`；
@@ -38,6 +48,14 @@ pub struct JevReviewOptions {
     pub output: Option<PathBuf>,
     /// 以 JSON 输出结果。
     pub json: bool,
+    /// 调用生成模型对 top-N 逐句改写。
+    pub rewrite: bool,
+    /// 覆盖 `FERRITE_BASE_URL`。
+    pub rewrite_base_url: Option<String>,
+    /// 覆盖 `FERRITE_API_KEY`。
+    pub rewrite_api_key: Option<String>,
+    /// 覆盖 `FERRITE_MODEL`。
+    pub rewrite_model: Option<String>,
 }
 
 /// 一个候选命中句。
@@ -56,12 +74,17 @@ struct Ranked {
     source: String,
     label: String,
     probability: f64,
+    rewrite: Option<String>,
 }
 
 /// 单句最大提交字符数（`jev_noul` 上限 2000，留安全余量）。
 const MAX_ITEM_CHARS: usize = 600;
 /// 默认模型别名。
 const DEFAULT_MODEL: &str = "jev-latest";
+/// 默认改写模型端点（ferrite 网关）。
+const DEFAULT_REWRITE_BASE_URL: &str = "http://127.0.0.1:3211/v1";
+/// 默认改写模型。
+const DEFAULT_REWRITE_MODEL: &str = "agnes-3.0-flash";
 
 /// 运行 `jev-review`，返回进程退出码。
 pub fn run(opts: &JevReviewOptions) -> Result<i32> {
@@ -92,7 +115,31 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
         .or_else(|| std::env::var("JEV_MODEL").ok())
         .unwrap_or_else(|| DEFAULT_MODEL.to_string());
 
-    let (ranked, answered_model) = ask_jev_noul(&base_url, &api_key, &model, &candidates)?;
+    let (mut ranked, answered_model) = ask_jev_noul(&base_url, &api_key, &model, &candidates)?;
+
+    if opts.rewrite {
+        let rw_base_url = opts
+            .rewrite_base_url
+            .clone()
+            .or_else(|| std::env::var("FERRITE_BASE_URL").ok())
+            .unwrap_or_else(|| DEFAULT_REWRITE_BASE_URL.to_string());
+        let rw_api_key = opts
+            .rewrite_api_key
+            .clone()
+            .or_else(|| std::env::var("FERRITE_API_KEY").ok())
+            .context("缺少改写模型密钥：设置 FERRITE_API_KEY 或传 --rewrite-api-key")?;
+        let rw_model = opts
+            .rewrite_model
+            .clone()
+            .or_else(|| std::env::var("FERRITE_MODEL").ok())
+            .unwrap_or_else(|| DEFAULT_REWRITE_MODEL.to_string());
+        for r in ranked.iter_mut().take(opts.top) {
+            match rewrite_sentence(&rw_base_url, &rw_api_key, &rw_model, r) {
+                Ok(text) => r.rewrite = Some(text),
+                Err(e) => eprintln!("改写失败（{}）：{e:#}", r.source),
+            }
+        }
+    }
     let report = if opts.json {
         render_json(&ranked, &answered_model, opts.top)?
     } else {
@@ -277,6 +324,7 @@ fn ask_jev_noul(
             source: c.source.clone(),
             label: c.label.clone(),
             probability: noul,
+            rewrite: None,
         });
     }
     ranked.sort_by(|a, b| {
@@ -287,22 +335,89 @@ fn ask_jev_noul(
     Ok((ranked, answered_model))
 }
 
+/// 调用生成模型（ferrite 网关，请求头伪装成 omp 客户端）改写一个句子。
+fn rewrite_sentence(base_url: &str, api_key: &str, model: &str, ranked: &Ranked) -> Result<String> {
+    let system = "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
+约束：只改表达，不改事实——人名、数字、引语、关键情节不得变动；\
+不要添加原文没有的信息；只输出改写后的文本，不要解释。";
+    let user = format!(
+        "原文（AI 腔概率 {:.2}，诊断：{}）：\n{}\n\n请把上面这段话改写得像人写的。",
+        ranked.probability,
+        if ranked.label.is_empty() {
+            "未标注"
+        } else {
+            &ranked.label
+        },
+        ranked.text
+    );
+    let body = json!({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ],
+        "temperature": 0.8,
+        "max_tokens": 1024,
+    });
+    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+    let response = ureq::post(&url)
+        .set("Authorization", &format!("Bearer {api_key}"))
+        .set("Content-Type", "application/json")
+        .set("Accept", "application/json")
+        .set(
+            "User-Agent",
+            "opencode/1.18.31 ai-sdk/provider-utils/4.0.40 runtime/bun/1.3.14",
+        )
+        .set("x-opencode-client", "cli")
+        .set("x-opencode-project", "global")
+        .set("x-opencode-session", "ses_7f3a9c2e51b84d06af19c3d7")
+        .set("x-opencode-request", "req_2f8c1d90ab34e6570189cafe")
+        .send_string(&body.to_string());
+
+    let text = match response {
+        Ok(resp) => resp.into_string().context("读取改写响应体失败")?,
+        Err(ureq::Error::Status(code, resp)) => {
+            let body_text = resp.into_string().unwrap_or_default();
+            bail!("改写端点返回 HTTP {code}: {body_text}");
+        }
+        Err(e) => bail!("改写端点请求失败: {e}"),
+    };
+    let parsed: Value = serde_json::from_str(&text).with_context(|| "改写响应不是有效 JSON")?;
+    parsed["choices"][0]["message"]["content"]
+        .as_str()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .context("改写响应缺少 choices[0].message.content")
+}
 /// 渲染文本报告。
 fn render_text(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
     let mut s = String::new();
-    s.push_str("# jev-review：AI 腔句子精判（P0）\n\n");
+    s.push_str("# jev-review：AI 腔句子精判与改写（P0/P1）\n\n");
     s.push_str(&format!("模型: {model} | 判定句数: {}\n\n", ranked.len()));
     s.push_str(&format!("## Top {}\n\n", top.min(ranked.len())));
     for (i, r) in ranked.iter().take(top).enumerate() {
         s.push_str(&format!(
-            "{}. [AI 腔概率 {:.2}] {}\n   句子：{}\n   来源：{}\n   改写提示：把「{}」中总结式、模板化的表述改为具体可见的动作、声音、物件或人物误读，避免解释腔替读者下结论；保留原有人名、数字、引语与事实。\n\n",
+            "{}. [AI 腔概率 {:.2}] {}\n   句子：{}\n   来源：{}\n",
             i + 1,
             r.probability,
-            if r.label.is_empty() { "未标注" } else { &r.label },
+            if r.label.is_empty() {
+                "未标注"
+            } else {
+                &r.label
+            },
             r.text,
-            r.source,
-            r.text
+            r.source
         ));
+        if let Some(rewritten) = &r.rewrite {
+            s.push_str(&format!("   改写：{rewritten}\n"));
+        } else {
+            s.push_str(&format!(
+                "   改写提示：把「{}」中总结式、模板化的表述改为具体可见的动作、声音、物件或人物误读，避免解释腔替读者下结论；保留原有人名、数字、引语与事实。\n",
+                r.text
+            ));
+        }
+        s.push('\n');
     }
     Ok(s)
 }
@@ -320,6 +435,7 @@ fn render_json(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
                 "text": r.text,
                 "source": r.source,
                 "label": r.label,
+                "rewrite": r.rewrite,
             })
         })
         .collect();

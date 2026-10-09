@@ -53,7 +53,7 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `study-compare` | 两份 analysis JSON 的 summary 数值指标差值表 |
 | `study-pov` | POV 漂移候选：确定性 JSON 输出（需人工复核，非结论） |
 | `consistency` | SQLite/FTS5 一致性索引：构建、查询与 13 个子命令 |
-| `jev-review` | Jev 语义精判（P0 原型）：读取 audit-draft JSON，按「AI 腔概率」排序命中句 |
+| `jev-review` | Jev 语义精判与改写（P0/P1）：按「AI 腔概率」排序命中句，`--rewrite` 用生成模型逐句改写 |
 
 ## 规则配置
 
@@ -68,13 +68,14 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `plan.required_headings` | 大纲必备标题 |
 | `plan.function_rules` | 章节/Scene/章末功能标签 |
 
-## Jev 语义精判（P0 原型）
+## Jev 语义精判与改写（P0/P1 原型）
 
 `jev-review` 把 `audit-draft --format json` 命中的样本句子批量提交给
 [Jev](https://github.com/jkudish/jev-mcp) 做语义判断（`jev_noul`：每句
 「是典型 AI 生成腔」的概率），按概率降序输出 top-N 值得改写的句子、
-来源与改写提示。这是 P0 验证原型：sentinel 核心规则层零改动，Jev 作为
-可选外部层，最终会演进为完整改写循环（P1）。
+来源与改写提示。加 `--rewrite` 后，再用生成模型（默认 ferrite 网关的
+`agnes-3.0-flash`）逐句改写，输出「原句 → 改写」对照。这是 P0/P1 验证
+原型：sentinel 核心规则层零改动，Jev 判断与生成模型都是可选外部层。
 
 ```bash
 # 1) 先生成 analysis JSON
@@ -84,9 +85,15 @@ cargo run --bin sentinel -- audit-draft path/to/ch01.md --format json -o /tmp/ch
 JEV_API_BASE_URL=https://…/v1/systemone \
 JEV_API_KEY=sk-... \
 cargo run --bin sentinel -- jev-review /tmp/ch01.json --top 10
+
+# 3) 精判 + 生成模型改写（改写端点默认 http://127.0.0.1:3211/v1）
+JEV_API_BASE_URL=https://…/v1/systemone \
+JEV_API_KEY=sk-... \
+FERRITE_API_KEY=sk-... \
+cargo run --bin sentinel -- jev-review /tmp/ch01.json --top 10 --rewrite
 ```
 
-环境变量：
+Jev 环境变量：
 
 | 变量 | 说明 |
 |---|---|
@@ -94,8 +101,17 @@ cargo run --bin sentinel -- jev-review /tmp/ch01.json --top 10
 | `JEV_API_KEY` | Bearer 密钥 |
 | `JEV_MODEL` | 模型别名，默认 `jev-latest` |
 
+改写模型环境变量（`--rewrite` 时）：
+
+| 变量 | 说明 |
+|---|---|
+| `FERRITE_BASE_URL` | 生成模型端点，默认 `http://127.0.0.1:3211/v1` |
+| `FERRITE_API_KEY` | 网关 Bearer 密钥 |
+| `FERRITE_MODEL` | 模型名，默认 `agnes-3.0-flash` |
+
 常用参数：`--top N`（输出前 N 句，默认 10）、`--limit N`（提交候选上限，
-`jev_noul` 单批上限 64）、`--output FILE`、`--json`。
+`jev_noul` 单批上限 64）、`--rewrite`（生成模型改写）、`--output FILE`、
+`--json`。
 
 ## 测试与 golden 基线
 

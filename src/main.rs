@@ -252,6 +252,18 @@ enum Command {
         /// 以 JSON 输出结果
         #[arg(long)]
         json: bool,
+        /// 调用生成模型对 top-N 逐句改写
+        #[arg(long)]
+        rewrite: bool,
+        /// 覆盖 FERRITE_BASE_URL（默认 http://127.0.0.1:3211/v1）
+        #[arg(long, value_name = "URL")]
+        rewrite_base_url: Option<String>,
+        /// 覆盖 FERRITE_API_KEY
+        #[arg(long, value_name = "KEY")]
+        rewrite_api_key: Option<String>,
+        /// 覆盖 FERRITE_MODEL（默认 agnes-3.0-flash）
+        #[arg(long, value_name = "MODEL")]
+        rewrite_model: Option<String>,
     },
     /// 对比两份 analysis JSON，输出 Markdown 指标差异表
     StudyCompare {
@@ -521,6 +533,10 @@ fn main() -> Result<()> {
             model,
             output,
             json,
+            rewrite,
+            rewrite_base_url,
+            rewrite_api_key,
+            rewrite_model,
         } => {
             let opts = tools::jev::JevReviewOptions {
                 analysis,
@@ -531,6 +547,10 @@ fn main() -> Result<()> {
                 model,
                 output,
                 json,
+                rewrite,
+                rewrite_base_url,
+                rewrite_api_key,
+                rewrite_model,
             };
             let rc = tools::jev::run(&opts)?;
             if rc != 0 {
