@@ -6,6 +6,10 @@
 //! - 表头/分隔行/数值渲染对齐 py f-string 语义（int 不带 `.0`，float 用 repr 风格）
 //! - 非数字 `summary` 键逐行 `不参与比较`
 //! - 缺 `summary` 键容忍（视为空）
+//!
+//! 有意放宽（py 缺陷修复）：`audit-draft --format json` 输出顶层数组
+//! `[{source, summary, ...}]`，py `compare.py` 对此直接崩溃（已报告缺陷）；
+//! Rust 面按意图取数组首元素，空数组报错。
 
 use std::collections::BTreeMap;
 
@@ -17,6 +21,17 @@ fn load_json(path: &std::path::Path) -> Result<Value> {
     let text = std::fs::read_to_string(path)
         .with_context(|| format!("读取 JSON 文件失败: {}", path.display()))?;
     serde_json::from_str(&text).with_context(|| format!("JSON 解析失败: {}", path.display()))
+}
+
+/// `audit-draft --format json` 的顶层数组报告归一为单份 analysis（取首元素）。
+fn unwrap_report(value: Value) -> Result<Value> {
+    match value {
+        Value::Array(items) => items
+            .into_iter()
+            .next()
+            .context("JSON 顶层为空数组，无 analysis 可比较"),
+        other => Ok(other),
+    }
 }
 
 /// 取 `analysis` 中的 `schema_version`（缺键或 null → `None`）。
@@ -173,8 +188,8 @@ pub fn run_compare(
     baseline_path: &std::path::Path,
     applied_path: &std::path::Path,
 ) -> Result<String> {
-    let baseline = load_json(baseline_path)?;
-    let applied = load_json(applied_path)?;
+    let baseline = unwrap_report(load_json(baseline_path)?)?;
+    let applied = unwrap_report(load_json(applied_path)?)?;
 
     let bv = schema_version(&baseline);
     let av = schema_version(&applied);

@@ -50,6 +50,36 @@ fn compare_table_structure() {
     );
 }
 
+/// `audit-draft --format json` 的顶层数组输出可直接喂给 study-compare
+/// （py 面对同样输入直接崩溃；Rust 取首元素出表）。空数组报错。
+#[test]
+fn compare_accepts_audit_json_array_report() {
+    let tmp = tempfile::tempdir().unwrap();
+    let baseline = tmp.path().join("a.json");
+    let applied = tmp.path().join("b.json");
+    std::fs::write(
+        &baseline,
+        serde_json::to_vec(&serde_json::json!([{"summary": {"chars": 100}}])).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        &applied,
+        serde_json::to_vec(&serde_json::json!([{"summary": {"chars": 250}}])).unwrap(),
+    )
+    .unwrap();
+
+    let table = compare::run_compare(&baseline, &applied).unwrap();
+    assert!(
+        table.contains("| chars | 100 | 250 | 150 |"),
+        "数组报告应产出 chars 指标行: {table}"
+    );
+
+    let empty = tmp.path().join("empty.json");
+    std::fs::write(&empty, "[]").unwrap();
+    let err = compare::run_compare(&empty, &applied).unwrap_err();
+    assert!(err.to_string().contains("空数组"), "空数组应报错: {err}");
+}
+
 /// schema_version 不等 → 错误消息含双方版本号（对齐 py ValueError 文案）。
 #[test]
 fn compare_schema_mismatch_error() {

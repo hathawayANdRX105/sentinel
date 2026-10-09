@@ -133,3 +133,10 @@ Rust `TextSplitter::split_paragraph_infos` 与 py 同名函数一样
 **不**过滤 `markdown_noise_line` 匹配行（`#` 标题行计为普通段），
 `markdown_noise` 只在 `split_sentence_infos` 里起作用。
 py/rust 在含 `#` 标题的章节上段落切分结果一致（标题计为第 1 段）。
+## study-compare：顶层数组报告归一（py 缺陷的有意修复）
+
+`audit-draft --format json` 输出顶层数组 `[{source, summary, ...}]`；py
+`compare.py` 只接受 dict，对真实 audit JSON 直接 AttributeError 崩溃（缺陷已报告）。
+跨章 diff 是该工具的主用例，Rust 面按意图放宽：顶层非空数组取首元素，空数组报
+`JSON 顶层为空数组`。dict 输入路径与 py golden 行为不变（含 schema_version
+mismatch 文案）。
