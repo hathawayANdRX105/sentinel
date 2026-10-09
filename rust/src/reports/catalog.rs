@@ -174,8 +174,8 @@ fn load_bank_names(draft: &crate::config::DraftConfig, key: &str) -> HashSet<Str
     }
 }
 
-/// 对齐 Python `load_hardcoded_template_names`（六组规则的 label+name 并集）。
-fn load_hardcoded_template_names(draft: &crate::config::DraftConfig) -> HashSet<String> {
+/// 对齐 Python `load_builtin_rule_template_names`（六组规则的 label+name 并集）。
+fn load_builtin_rule_template_names(draft: &crate::config::DraftConfig) -> HashSet<String> {
     let groups: Vec<Vec<&RegexRule>> = vec![
         draft.regex_rules.patterns.iter().collect(),
         draft.regex_rules.phrases.iter().collect(),
@@ -200,8 +200,8 @@ fn load_hardcoded_template_names(draft: &crate::config::DraftConfig) -> HashSet<
     names
 }
 
-/// 对齐 Python `load_hardcoded_term_names`（三组规则的 name 并集）。
-fn load_hardcoded_term_names(draft: &crate::config::DraftConfig) -> HashSet<String> {
+/// 对齐 Python `load_builtin_rule_term_names`（三组规则的 name 并集）。
+fn load_builtin_rule_term_names(draft: &crate::config::DraftConfig) -> HashSet<String> {
     let groups: Vec<Vec<&RegexRule>> = vec![
         draft.regex_rules.tokens.iter().collect(),
         draft.regex_rules.phrases.iter().collect(),
@@ -617,8 +617,8 @@ fn build_writeback_queue(
     keep_candidates: &[Value],
     template_bank_names: &HashSet<String>,
     term_bank_names: &HashSet<String>,
-    hardcoded_template_names: &HashSet<String>,
-    hardcoded_term_names: &HashSet<String>,
+    builtin_template_names: &HashSet<String>,
+    builtin_term_names: &HashSet<String>,
 ) -> Vec<Value> {
     let mut queue: Vec<Value> = Vec::new();
     for item in template_families {
@@ -628,7 +628,7 @@ fn build_writeback_queue(
             .unwrap_or("")
             .to_string();
         let in_bank = template_bank_names.contains(&name);
-        let in_hardcoded = hardcoded_template_names.contains(&name);
+        let in_builtin = builtin_template_names.contains(&name);
         let story_count = item.get("story_count").and_then(Value::as_i64).unwrap_or(0);
         let count = item.get("count").and_then(Value::as_i64).unwrap_or(0);
         if story_count < 2 {
@@ -644,14 +644,14 @@ fn build_writeback_queue(
                 "state": "bank",
                 "reason": "模板已在库中，但跨 Story 仍高频命中，应回看 pattern、阈值或说明是否过宽。",
             }));
-        } else if in_hardcoded && count >= 12 {
+        } else if in_builtin && count >= 12 {
             queue.push(json!({
                 "kind": "rule_recalibration",
                 "name": name,
                 "target": "audit.draft",
                 "stories": story_count,
                 "count": count,
-                "state": "hardcoded",
+                "state": "builtin",
                 "reason": "这条规则已经写在审查脚本里，高频命中更像阈值、分类或说明需要回调，而不是简单再加一条 bank。",
             }));
         } else if !in_bank && count >= 12 {
@@ -673,7 +673,7 @@ fn build_writeback_queue(
             .unwrap_or("")
             .to_string();
         let in_bank = term_bank_names.contains(&name);
-        let in_hardcoded = hardcoded_term_names.contains(&name);
+        let in_builtin = builtin_term_names.contains(&name);
         let story_count = item.get("story_count").and_then(Value::as_i64).unwrap_or(0);
         let count = item.get("count").and_then(Value::as_i64).unwrap_or(0);
         if story_count < 2 {
@@ -689,14 +689,14 @@ fn build_writeback_queue(
                 "state": "bank",
                 "reason": "词项已在库中却仍跨 Story 偏高，应调阈值、说明，或拆成更细 phrase 规则。",
             }));
-        } else if in_hardcoded && count >= 8 {
+        } else if in_builtin && count >= 8 {
             queue.push(json!({
                 "kind": "rule_recalibration",
                 "name": name,
                 "target": "audit.draft",
                 "stories": story_count,
                 "count": count,
-                "state": "hardcoded",
+                "state": "builtin",
                 "reason": "这条词项已经在审查脚本基础规则里，高频命中说明更适合调阈值或拆分类，而不是重复入库。",
             }));
         } else if !in_bank && count >= 8 {
@@ -970,8 +970,8 @@ pub fn build_catalog_payload(ctx: &DraftContext, novel_dir: &Path, payloads: &[V
     let draft = ctx.draft_rules();
     let template_bank_names = load_bank_names(draft, "name");
     let term_bank_names = load_bank_names(draft, "term");
-    let hardcoded_template_names = load_hardcoded_template_names(draft);
-    let hardcoded_term_names = load_hardcoded_term_names(draft);
+    let builtin_template_names = load_builtin_rule_template_names(draft);
+    let builtin_term_names = load_builtin_rule_term_names(draft);
     let template_candidates = aggregate_candidates(payloads, "template_bank_candidates");
     let template_families = aggregate_candidate_families(&template_candidates);
     let term_candidates = aggregate_candidates(payloads, "term_bank_candidates");
@@ -985,8 +985,8 @@ pub fn build_catalog_payload(ctx: &DraftContext, novel_dir: &Path, payloads: &[V
         &keep_candidates,
         &template_bank_names,
         &term_bank_names,
-        &hardcoded_template_names,
-        &hardcoded_term_names,
+        &builtin_template_names,
+        &builtin_term_names,
     );
     let story_paths: Vec<Value> = payloads
         .iter()

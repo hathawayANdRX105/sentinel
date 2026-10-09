@@ -2737,9 +2737,11 @@ fn detect_a_b_turns(ctx: &DraftContext, text: &str) -> Vec<AbTurn> {
     flagged
 }
 
-/// ngram 高频词（对齐 `collect_ngram_terms`：sizes 按传入顺序扫描，
-/// 平手按首现序；covered = 被更长且计数不少于自身的已收短语包含）。
-fn collect_ngram_terms(
+/// ngram 高频词（对齐 `collect_ngram_terms` 新算法：`sizes` 预排序
+/// （`tuple(sorted(min_count_by_size))`）扫描；`one_terms` 预计算；
+/// 去重 = 已收短语的 `covered_phrases` 子串覆盖集（size ∈ sizes 且
+/// `counts.get(sub, 0) <= count`），平手按首现序）。
+pub fn collect_ngram_terms(
     ctx: &DraftContext,
     text: &str,
     min_count_by_size: &[(usize, usize)],
@@ -2757,7 +2759,14 @@ fn collect_ngram_terms(
         .collect();
     let structure_chars: std::collections::HashSet<char> =
         ctx.lexicon().structure_chars.chars().collect();
-    for (size, _min) in min_count_by_size {
+    // `sizes = tuple(sorted(min_count_by_size))` 与 `one_terms` 预计算（循环外）。
+    let mut sizes: Vec<(usize, usize)> = min_count_by_size.to_vec();
+    sizes.sort();
+    let one_terms: std::collections::HashMap<usize, String> = sizes
+        .iter()
+        .map(|(size, _)| (*size, "一".repeat(*size)))
+        .collect();
+    for (size, _min) in &sizes {
         if n < *size {
             continue;
         }
@@ -2769,7 +2778,7 @@ fn collect_ngram_terms(
             if is_whole_match(&ctx.ascii_alpha_regex, &phrase) {
                 continue;
             }
-            if chars[idx..idx + size].iter().all(|c| *c == '一') {
+            if phrase == one_terms[size] {
                 continue;
             }
             if require_structure
@@ -2800,13 +2809,27 @@ fn collect_ngram_terms(
             .then(code_len(&b.0).cmp(&code_len(&a.0)))
             .then_with(|| a.0.cmp(&b.0))
     });
+    // 去重：保留短语时预标记其子串（`size <= phrase_len` 的 substring，
+    // `counts.get(sub, 0) <= count`）进 `covered_phrases`；后续命中即跳过。
     let mut deduped: Vec<(String, usize)> = Vec::new();
+    let mut covered_phrases: std::collections::HashSet<String> = std::collections::HashSet::new();
     for (phrase, count) in filtered {
-        let covered = deduped.iter().any(|(kept_phrase, kept_count)| {
-            phrase != *kept_phrase && phrase.contains(kept_phrase.as_str()) && kept_count >= &count
-        });
-        if !covered {
-            deduped.push((phrase, count));
+        if covered_phrases.contains(&phrase) {
+            continue;
+        }
+        let phrase_len = code_len(&phrase);
+        let pchars: Vec<char> = phrase.chars().collect();
+        deduped.push((phrase, count));
+        for (size, _min) in &sizes {
+            if *size > phrase_len {
+                continue;
+            }
+            for idx in 0..=phrase_len - size {
+                let sub: String = pchars[idx..idx + size].iter().collect();
+                if counts.get(&sub) <= count {
+                    covered_phrases.insert(sub);
+                }
+            }
         }
     }
     deduped

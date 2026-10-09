@@ -377,10 +377,10 @@ pub fn build_learning_log(
     lines.push(String::new());
 
     lines.push("## Manual Decisions".to_string());
-    lines.push("- confirmed_issues: `TODO`".to_string());
-    lines.push("- false_positives: `TODO`".to_string());
-    lines.push("- design_repeats_to_keep: `TODO`".to_string());
-    lines.push("- missing_checks: `TODO`".to_string());
+    lines.push("- confirmed_issues: `_fill_in_`".to_string());
+    lines.push("- false_positives: `_fill_in_`".to_string());
+    lines.push("- design_repeats_to_keep: `_fill_in_`".to_string());
+    lines.push("- missing_checks: `_fill_in_`".to_string());
     lines.push(String::new());
 
     lines.push("## Template Backlog".to_string());

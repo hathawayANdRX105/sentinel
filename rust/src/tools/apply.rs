@@ -158,7 +158,7 @@ fn build_plan(catalog: &Value) -> Vec<Value> {
             } else {
                 "manual_review"
             };
-            if state == "hardcoded" {
+            if state == "hardcoded" || state == "builtin" {
                 action = "script_recalibration";
             } else if state == "bank" && (action == "template_bank" || action == "term_bank") {
                 action = "bank_recalibration";
