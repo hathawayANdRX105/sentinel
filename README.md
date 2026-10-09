@@ -54,7 +54,8 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `reports-learning` | 章节评审学习日志：learning/*.md + 逐 story SUMMARY.md |
 | `reports-profiles` | 研究导向章节句子画像：profiles/*.md + 逐 story SUMMARY.md |
 | `reports-workspace` | 整工作区看板：concept/plan/draft/consistency 四节 → 单份 AUDIT.md |
-| `tools-apply` | 模板候选回写 review.yaml：dry-run 预览或写回（改写源文件） |
+| `study-compare` | 两份 analysis JSON 的 summary 数值指标差值表 |
+| `study-pov` | POV 漂移候选：确定性 JSON 输出（需人工复核，非结论） |
 | `consistency` | SQLite/FTS5 一致性索引：构建、查询与 13 个子命令 |
 
 ## 规则配置
