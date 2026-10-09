@@ -26,7 +26,7 @@ pub struct CatalogOptions {
 }
 
 /// `summary_path_for(novel_dir)`：`novel_dir/draft-stats/template-catalog/SUMMARY.md`。
-fn summary_path_for(novel_dir: &Path) -> PathBuf {
+pub fn summary_path_for(novel_dir: &Path) -> PathBuf {
     novel_dir
         .join("draft-stats")
         .join("template-catalog")
@@ -34,7 +34,7 @@ fn summary_path_for(novel_dir: &Path) -> PathBuf {
 }
 
 /// `json_path_for(novel_dir)`：`novel_dir/draft-stats/template-catalog/CATALOG.json`。
-fn json_path_for(novel_dir: &Path) -> PathBuf {
+pub fn json_path_for(novel_dir: &Path) -> PathBuf {
     novel_dir
         .join("draft-stats")
         .join("template-catalog")
@@ -750,17 +750,21 @@ fn build_writeback_queue(
 
 /// `build_catalog_markdown` 的分节聚合输入（避免 9 参函数触发 clippy）。
 #[derive(Debug, Clone, Copy)]
-struct CatalogSections<'a> {
-    template_candidates: &'a [Value],
-    template_families: &'a [Value],
-    term_candidates: &'a [Value],
-    keep_candidates: &'a [Value],
-    deposition_targets: &'a [Value],
-    learning_anchors: &'a [Value],
-    writeback_queue: &'a [Value],
+pub struct CatalogSections<'a> {
+    pub template_candidates: &'a [Value],
+    pub template_families: &'a [Value],
+    pub term_candidates: &'a [Value],
+    pub keep_candidates: &'a [Value],
+    pub deposition_targets: &'a [Value],
+    pub learning_anchors: &'a [Value],
+    pub writeback_queue: &'a [Value],
 }
 
-fn build_catalog_markdown(novel_dir: &Path, stories: usize, sections: &CatalogSections) -> String {
+pub fn build_catalog_markdown(
+    novel_dir: &Path,
+    stories: usize,
+    sections: &CatalogSections,
+) -> String {
     let CatalogSections {
         template_candidates,
         template_families,
@@ -962,7 +966,7 @@ fn build_catalog_markdown(novel_dir: &Path, stories: usize, sections: &CatalogSe
 }
 
 /// 对齐 Python `build_catalog_payload`。
-fn build_catalog_payload(ctx: &DraftContext, novel_dir: &Path, payloads: &[Value]) -> Value {
+pub fn build_catalog_payload(ctx: &DraftContext, novel_dir: &Path, payloads: &[Value]) -> Value {
     let draft = ctx.draft_rules();
     let template_bank_names = load_bank_names(draft, "name");
     let term_bank_names = load_bank_names(draft, "term");

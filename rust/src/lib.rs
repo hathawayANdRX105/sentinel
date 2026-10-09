@@ -11,3 +11,4 @@ pub mod reports;
 pub mod rules;
 pub mod stats;
 pub mod text;
+pub mod tools;

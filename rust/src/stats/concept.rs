@@ -9,6 +9,7 @@ use anyhow::Result;
 use crate::audit::concept as concept_audit;
 use crate::audit::draft::Counter;
 use crate::input;
+use crate::stats::draft::path_from_parts;
 
 /// `stats_path_for`：把路径中首个 `cards` 目录名替换为 `card-stats`（无 output_root 参数）。
 pub fn stats_path_for(card_path: &Path) -> Result<PathBuf> {
@@ -20,7 +21,7 @@ pub fn stats_path_for(card_path: &Path) -> Result<PathBuf> {
     for (idx, part) in parts.iter().enumerate() {
         if part.as_str() == "cards" {
             parts[idx] = "card-stats".to_string();
-            return Ok(PathBuf::from(parts.join("/")));
+            return Ok(path_from_parts(&parts));
         }
     }
     anyhow::bail!(
@@ -29,16 +30,16 @@ pub fn stats_path_for(card_path: &Path) -> Result<PathBuf> {
     );
 }
 
-fn collect_targets(raw_paths: &[PathBuf], include_templates: bool) -> Vec<PathBuf> {
+pub fn collect_targets(raw_paths: &[PathBuf], include_templates: bool) -> Vec<PathBuf> {
     let mut targets = concept_audit::iter_targets(raw_paths, include_templates);
     targets.sort_by_key(|path| path.to_string_lossy().into_owned());
     targets
 }
 
 /// 单卡报告结果：(源路径, 警告列表)。
-type Report = (PathBuf, Vec<concept_audit::Warning>);
+pub type Report = (PathBuf, Vec<concept_audit::Warning>);
 
-fn build_single_reports(files: &[PathBuf]) -> Result<Vec<Report>> {
+pub fn build_single_reports(files: &[PathBuf]) -> Result<Vec<Report>> {
     let mut reports: Vec<Report> = Vec::new();
     for path in files {
         let warnings = concept_audit::audit_card(path)?;
@@ -51,7 +52,7 @@ fn build_single_reports(files: &[PathBuf]) -> Result<Vec<Report>> {
     Ok(reports)
 }
 
-fn build_directory_summaries(reports: &[Report]) -> Result<Vec<PathBuf>> {
+pub fn build_directory_summaries(reports: &[Report]) -> Result<Vec<PathBuf>> {
     let mut written: Vec<PathBuf> = Vec::new();
     // Python `grouped: dict[Path, list]`：键=卡文件父目录，插入序=首现序。
     let mut grouped: Vec<(PathBuf, Vec<usize>)> = Vec::new();

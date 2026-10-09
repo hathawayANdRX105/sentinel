@@ -11,6 +11,7 @@ use crate::audit::draft::Counter;
 use crate::audit::plan as plan_audit;
 use crate::config;
 use crate::input;
+use crate::stats::draft::path_from_parts;
 
 /// 计划目录名（对应 Python `PLAN_DIRS`）。
 const PLAN_DIRS: [&str; 3] = ["arc-plan", "story-plan", "chapter-plan"];
@@ -61,7 +62,7 @@ pub fn stats_path_for(plan_path: &Path, output_root: Option<&Path>) -> Result<Pa
         if PLAN_DIRS.contains(&part.as_str()) {
             let mut mirrored = parts.clone();
             mirrored[idx] = format!("{part}-stats");
-            let stats_path = PathBuf::from(mirrored.join("/"));
+            let stats_path = path_from_parts(&mirrored);
             match output_root {
                 None => return Ok(stats_path),
                 Some(root) => {
@@ -81,16 +82,16 @@ pub fn stats_path_for(plan_path: &Path, output_root: Option<&Path>) -> Result<Pa
     );
 }
 
-fn collect_targets(raw: &[PathBuf]) -> Vec<PathBuf> {
+pub fn collect_targets(raw: &[PathBuf]) -> Vec<PathBuf> {
     let mut targets = plan_audit::iter_targets(raw);
     targets.sort_by_key(|path| path.to_string_lossy().into_owned());
     targets
 }
 
 /// 单文件报告结果：(源路径, 检测出的 plan 类型, 警告列表)。
-type Report = (PathBuf, String, Vec<plan_audit::Warning>);
+pub type Report = (PathBuf, String, Vec<plan_audit::Warning>);
 
-fn build_single_reports(
+pub fn build_single_reports(
     engine: &plan_audit::PlanEngine,
     files: &[PathBuf],
     output_root: Option<&Path>,
@@ -110,7 +111,7 @@ fn build_single_reports(
     Ok(reports)
 }
 
-fn build_directory_summaries(
+pub fn build_directory_summaries(
     engine: &plan_audit::PlanEngine,
     reports: &[Report],
     output_root: Option<&Path>,

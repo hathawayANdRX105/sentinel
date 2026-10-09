@@ -14,3 +14,4 @@ pub mod kit;
 pub mod learning;
 pub mod profiles;
 pub mod scorecard;
+pub mod workspace;

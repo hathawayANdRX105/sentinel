@@ -107,7 +107,7 @@ pub fn collect_chapter_files(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
 }
 
 /// 由 Python `Path.parts` 语义重组路径（`"/"` 组件还原为绝对根）。
-fn path_from_parts(parts: &[String]) -> PathBuf {
+pub fn path_from_parts(parts: &[String]) -> PathBuf {
     let mut out = PathBuf::new();
     for (i, part) in parts.iter().enumerate() {
         if i == 0 && part == "/" {
@@ -247,22 +247,22 @@ pub fn ending_flow_text(labels_in_order: &[String], limit: usize, labels: &Endin
 }
 
 /// 分析环境：共享 `ctx` / 模板库 / 词库 / 语料画像 / 采样上限，
-struct AnalysisEnv<'a> {
+pub struct AnalysisEnv<'a> {
     /// 草稿分析上下文（规则节 + 编译正则 + 分词器）。
-    ctx: &'a DraftContext,
+    pub ctx: &'a DraftContext,
     /// `build_template_bank` 结果（`draft.regex_rules` + 模板句）。
-    template_bank: &'a [TemplateRule],
+    pub template_bank: &'a [TemplateRule],
     /// `draft.tracked_terms` 词库。
-    term_bank: &'a [TrackedTerm],
+    pub term_bank: &'a [TrackedTerm],
     /// 语料学习画像（`--no-corpus-learning` 时为 None）。
-    corpus_profile: Option<&'a CorpusProfile>,
+    pub corpus_profile: Option<&'a CorpusProfile>,
     /// 每条规则最多记录的样本行数。
-    sample_limit: usize,
+    pub sample_limit: usize,
 }
 
 impl AnalysisEnv<'_> {
     /// `analyze_chapters`（`lib.analysis.analyze_files` 移植）：逐章分析。
-    fn analyze_chapters(&self, files: &[PathBuf]) -> Result<Vec<ChapterAnalysis>> {
+    pub fn analyze_chapters(&self, files: &[PathBuf]) -> Result<Vec<ChapterAnalysis>> {
         let mut out: Vec<ChapterAnalysis> = Vec::new();
         for path in files {
             let analysis = analyze_path(
@@ -306,7 +306,7 @@ impl AnalysisEnv<'_> {
 }
 
 /// 单文件章节报告（Python `build_single_reports` 移植）。
-fn build_single_reports(
+pub fn build_single_reports(
     env: &AnalysisEnv,
     files: &[PathBuf],
     output_root: Option<&Path>,
@@ -430,7 +430,7 @@ impl Ctr {
 }
 
 /// 按父目录分组的 SUMMARY + 滚动窗口（Python `build_group_reports` 移植）。
-fn build_group_reports(
+pub fn build_group_reports(
     env: &AnalysisEnv,
     files: &[PathBuf],
     window_sizes: &[usize],

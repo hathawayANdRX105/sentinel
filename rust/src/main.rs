@@ -12,7 +12,7 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use sentinel::{audit, config, consistency, reports, stats};
+use sentinel::{audit, config, consistency, reports, stats, tools};
 
 /// 小说大纲/草稿审查与统计工具（Rust 重写）。
 #[derive(Parser)]
@@ -201,6 +201,30 @@ enum Command {
     Consistency {
         #[command(subcommand)]
         cmd: consistency::ConsistencyCmd,
+    },
+    /// 整工作区看板：concept/plan/draft/consistency 四节 → 单份 AUDIT.md（对应 Python `reports.workspace`）
+    ReportsWorkspace {
+        /// novel 目录（例如 novel1）
+        #[arg(required = true, value_name = "NOVEL_DIR")]
+        novel_dir: PathBuf,
+        /// 每条规则最多记录的样本行数
+        #[arg(long, default_value_t = 3)]
+        sample_limit: usize,
+        /// 滚动章节窗口大小（缺省 2 3；显式 `--window-sizes` 不带值时为空列表）
+        #[arg(long, value_name = "SIZE", num_args = 0..)]
+        window_sizes: Option<Vec<usize>>,
+    },
+    /// 模板候选回写：dry-run 预览或写回 review.yaml（对应 Python `tools.apply`）
+    ToolsApply {
+        /// 模板目录 CATALOG.json 路径
+        #[arg(required = true, value_name = "CATALOG")]
+        catalog: PathBuf,
+        /// 只预览，不改文件
+        #[arg(long)]
+        dry_run: bool,
+        /// 执行回写
+        #[arg(long)]
+        apply: bool,
     },
 }
 
@@ -406,6 +430,42 @@ fn main() -> Result<()> {
         }
         Command::Consistency { cmd } => {
             let rc = consistency::run(&cmd)?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ReportsWorkspace {
+            novel_dir,
+            sample_limit,
+            window_sizes,
+        } => {
+            let opts = reports::workspace::WorkspaceOptions {
+                novel_dir,
+                sample_limit,
+                window_sizes: window_sizes.unwrap_or_else(|| vec![2, 3]),
+            };
+            let (rc, printed) = reports::workspace::run(&opts)?;
+            for path in &printed {
+                println!("{}", path.display());
+            }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::ToolsApply {
+            catalog,
+            dry_run,
+            apply,
+        } => {
+            let opts = tools::apply::ApplyOptions {
+                catalog,
+                dry_run,
+                apply,
+            };
+            let (rc, dry_run_text) = tools::apply::run(&opts)?;
+            if let Some(text) = dry_run_text {
+                println!("{text}");
+            }
             if rc != 0 {
                 process::exit(rc);
             }

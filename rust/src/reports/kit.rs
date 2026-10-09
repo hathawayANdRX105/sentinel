@@ -34,7 +34,7 @@ pub struct KitOptions {
 }
 
 /// `review_kit_path_for(draft)`：`stats_path_for(draft).parent / review-kit / SUMMARY.md`。
-fn review_kit_path_for(draft_path: &Path) -> Result<PathBuf> {
+pub fn review_kit_path_for(draft_path: &Path) -> Result<PathBuf> {
     let stats = stats_path_for(draft_path, None)?;
     Ok(stats
         .parent()

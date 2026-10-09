@@ -29,3 +29,54 @@ Python `reports/scorecard.py main()` 用 `raise SystemExit("No draft chapter fil
 Python `dict(counter)` 序列化为 JSON **对象**（插入序）。Rust 用新类型
 `audit::draft::CountMap`（保序 serialize_map）而非 pair 列表，
 对照测试为**零归一化**的严格深度相等（`tests/audit_draft_json.rs`）。
+
+## tools-apply：f-string 标量渲染差异（bool / 科学计数 / repr vs JSON）
+
+Python `render_dry_run` 用 f-string 插值，非 `str` 标量按 `str(value)` 渲染；
+Rust `src/tools/apply.rs` `json_scalar`（:108）按 `Display`/`serde_json` 文本渲染。
+三类已知逐字偏差（仅当 catalog 的 `stories`/`count`/`reason` 等字段为非字符串值时出现）：
+
+- bool：Python `str(True)` → `True`；Rust `bool::to_string()` → `true`。
+- 浮点科学计数：Python `str(1e30)` → `1e+30`；Rust `f64 Display` → `1e30`。
+- 容器：Python f-string 对 dict/list 用 **repr**（单引号、`None`）；
+  Rust `Value::to_string()` 输出 **JSON 文本**（双引号、`null`）。
+
+裁决：接受为已知偏差。对照轮（deviation rounds）确认三处偏差均只出现在
+构造的非字符串标量输入；固化基线（`tests/fixtures/apply-inputs/{c1.yaml,c2.json}`）
+字段全为字符串/整数，dry-run 与回写基线零 diff。不为此引入 Python repr 仿真。
+
+## tools-apply：catalog 缺失键容错
+
+Python `build_plan` 取 `item["action"]`/`item["state"]` 等键缺失时 KeyError
+（未捕获 → traceback + 退出码 1）；Rust `json_field`/`json_top`（:119/:127）
+对缺键给默认值（空串 / `"unknown"` / `0`）继续渲染。裁决：Rust 面更宽容，
+行为面（rc/dry-run 文本）在合法 catalog 上逐字一致；缺键输入只作为
+容错设计记录，不做对照基线。
+
+## tools-apply：E2「Invalid catalog」stderr 引擎细节差异
+
+yaml 解析失败的错误消息前缀（`Invalid catalog: <path>`）逐字一致；
+失败详情一行是引擎文本（Python `yaml.YAMLError` 描述 vs Rust `serde_yaml`
+解析错误描述），引擎细节不保证逐字。对照轮 E2 已人工 cmp：前缀逐字、
+详情行已知差异。裁决：接受，不做 YAML 引擎错误文本仿真。
+
+## tools-apply：yaml 回写序列化裁决
+
+Python `_write_rules_yaml` 用 `yaml.safe_dump(allow_unicode=True, sort_keys=False)`
+全量覆写；Rust `write_rules_yaml` 用 `serde_yaml::to_string(YamlValue)`（键序保留）。
+两者对仓库真实 `configs/rules/review.yaml` 做「读改写 + 全量序列化」比对
+字节级 IDENTICAL（对照轮 `/tmp/yamlcmp`）。固化基线
+`tests/fixtures/expected/reports-workspace-apply/apply-full/post-apply.yaml`
+（Python apply 后字节）与 Rust apply 后字节零 diff（`apply_round_writeback_full`）。
+裁决：serde_yaml 直接等价，无需 PyYAML dump 仿真。
+
+## stats concept/plan：`stats_path_for` 绝对路径双斜杠修复
+
+初版移植把 `Path.components()` 逐段转字符串后 `join("/")` 重建路径；
+Python 参考是 `Path(*parts)`（`Path.parts` 的根组件为单个 `"/"`）。
+相对路径输入下两者字节相同（各对照轮均相对路径，未暴露），绝对路径输入
+时 `join` 产生 `//tmp/...` 双斜杠（SUMMARY.md 内容路径、AUDIT.md 展示行）。
+修复：`src/stats/concept.rs` `stats_path_for` 与 `src/stats/plan.rs`
+`stats_path_for` 改用 `src/stats/draft.rs` `path_from_parts`（已 `pub`，
+逐段 `PathBuf::push`，根组件还原单 `/`）。`tests/reports_workspace_apply.rs`
+以 tempdir **绝对路径**输入运行，回归锁定此修复。
