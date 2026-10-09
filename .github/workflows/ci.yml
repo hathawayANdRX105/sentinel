@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: build, test, clippy, fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # 钉住与本地开发一致的版本：stable 浮动会在新版 clippy 引入新 lint 时
+      # 无预警变红，而本地无法安装发行版 rustup 之外的版本复现。
+      - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: clippy, rustfmt
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy（零警告）
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Tests（全量）
+        run: cargo test --all-targets --all-features

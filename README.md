@@ -54,6 +54,9 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `study-pov` | POV 漂移候选：确定性 JSON 输出（需人工复核，非结论） |
 | `consistency` | SQLite/FTS5 一致性索引：构建、查询与 13 个子命令 |
 | `jev-review` | Jev 语义精判与改写（P0/P1）：按「AI 腔概率」排序命中句，`--rewrite` 用生成模型逐句改写 |
+| `style-inspect` | 打印风格画像（注入生成 prompt 用），`--scene` 附带场景命中的设定卡 |
+| `style-check` | 校验 `configs/styles` 与 `configs/cards`（解析、id 唯一性） |
+| `adventure` | 文字冒险回合：规则判定（骰子/HP/物品）确定性，叙述用 `--llm`（ferrite 网关）或确定性桩；存档为可读 JSON |
 
 ## 规则配置
 
@@ -67,6 +70,25 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `draft.ending_labels` | 章末收束类型 |
 | `plan.required_headings` | 大纲必备标题 |
 | `plan.function_rules` | 章节/Scene/章末功能标签 |
+
+## 风格化生成（风格画像 / 设定卡 / 文字冒险）
+
+风格是一等公民配置，生成端注入、审查端复用同一份禁忌清单：
+
+```text
+configs/styles/<style>.yaml   风格画像：词汇/句长/节奏/人称、期望与禁忌、
+                              few-shot 示例、颜文字映射表与频率上限、术语表
+configs/cards/<set>.yaml      设定卡：人物/世界/规则/物品，关键词触发动态注入
+adventure/*.json              文字冒险存档（可读 JSON，跨回合/跨会话恢复）
+```
+
+- `style-inspect <ID> [--scene 文本]`：打印注入生成 prompt 的风格画像，
+  命中场景关键词的设定卡一并输出（SillyTavern Lorebook 式动态注入）。
+- `style-check`：lint 风格/设定卡配置（YAML 解析、卡 id 唯一性）。
+- `adventure --state 存档.json <行动>`：行动如「前往 雨巷」「遭遇 巨魔30」
+  「拾取 油纸伞」「攻击巨魔」。骰子/HP/物品由确定性代码裁决（LLM 无法
+  篡改规则），`--llm` 时叙述交给 ferrite 网关（端点不可用自动降级为
+  确定性叙述并提示），`--cards-dir` 注入当前场景相关设定。
 
 ## Jev 语义精判与改写（P0/P1 原型）
 

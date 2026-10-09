@@ -64,6 +64,10 @@ pub struct JevReviewOptions {
     pub draft: Option<PathBuf>,
     /// 改写后全文输出路径。
     pub output_draft: Option<PathBuf>,
+    /// 对 top-N 句子额外做 jev_classify 诊断分类（AI 腔类型标签）。
+    pub classify: bool,
+    /// 文风样本文件：改写时按样本的文风特征注入匹配指导。
+    pub style_sample: Option<PathBuf>,
 }
 
 /// 一个候选命中句。
@@ -79,18 +83,20 @@ struct Candidate {
 
 /// 一个已判定句子。
 #[derive(Debug, Clone)]
-struct Ranked {
-    text: String,
-    source: String,
-    label: String,
+pub struct Ranked {
+    pub text: String,
+    pub source: String,
+    pub label: String,
     /// 命中样本对应的规则说明（review.yaml 的 note 字段）。
-    note: String,
-    probability: f64,
-    rewrite: Option<String>,
+    pub note: String,
+    pub probability: f64,
+    pub rewrite: Option<String>,
     /// 改写后经 jev 判定的「AI 腔概率」（`--verify` 时）。
-    ai_prob_after: Option<f64>,
+    pub ai_prob_after: Option<f64>,
     /// 改写是否因语义校验不一致被拒绝（`--verify` 时）。
-    verify_rejected: bool,
+    pub verify_rejected: bool,
+    /// `--classify` 诊断标签（AI 腔类型 id）。
+    pub slop_class: Option<String>,
 }
 
 /// 单句最大提交字符数（`jev_noul` 上限 2000，留安全余量）。
@@ -137,7 +143,21 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
 
     let (mut ranked, answered_model) = ask_jev_noul(&base_url, &api_key, &model, &candidates)?;
 
+    if opts.classify {
+        classify_sentences(&base_url, &api_key, &model, &mut ranked, opts.top)?;
+    }
+
+    let style_guidance = match &opts.style_sample {
+        Some(path) => {
+            let sample = std::fs::read_to_string(path)
+                .with_context(|| format!("读取文风样本失败: {}", path.display()))?;
+            Some(style_guidance_from_text(&sample))
+        }
+        None => None,
+    };
+
     if opts.rewrite {
+        let style_guidance = style_guidance.as_deref();
         let rw_base_url = opts
             .rewrite_base_url
             .clone()
@@ -154,7 +174,7 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
             .or_else(|| std::env::var("FERRITE_MODEL").ok())
             .unwrap_or_else(|| DEFAULT_REWRITE_MODEL.to_string());
         for r in ranked.iter_mut().take(opts.top) {
-            match rewrite_sentence(&rw_base_url, &rw_api_key, &rw_model, r) {
+            match rewrite_sentence(&rw_base_url, &rw_api_key, &rw_model, r, style_guidance) {
                 Ok(text) => {
                     if opts.verify {
                         match verify_rewrite(&base_url, &api_key, &model, &r.text, &text) {
@@ -221,7 +241,10 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
 
 /// 反向红线复检：对原稿与改写后草稿各跑一次 `audit-draft` 分析，
 /// 返回 `(原稿 warn_sections, 原稿 hard_flags, 改写后 warn_sections, 改写后 hard_flags)`。
-fn redline_check(draft_path: &Path, rewritten_path: &Path) -> Result<(usize, usize, usize, usize)> {
+pub fn redline_check(
+    draft_path: &Path,
+    rewritten_path: &Path,
+) -> Result<(usize, usize, usize, usize)> {
     let rules = crate::config::load_rules(&crate::config::default_rules_path())?;
     let ctx = crate::audit::draft::DraftContext::new(rules)?;
     let template_bank = crate::rules::build_template_bank(ctx.draft_rules());
@@ -430,6 +453,7 @@ fn ask_jev_noul(
             rewrite: None,
             ai_prob_after: None,
             verify_rejected: false,
+            slop_class: None,
         });
     }
     ranked.sort_by(|a, b| {
@@ -440,11 +464,190 @@ fn ask_jev_noul(
     Ok((ranked, answered_model))
 }
 
-/// 调用生成模型（ferrite 网关，请求头伪装成 omp 客户端）改写一个句子。
-fn rewrite_sentence(base_url: &str, api_key: &str, model: &str, ranked: &Ranked) -> Result<String> {
-    let system = "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
+/// `--classify` 诊断类别目录：id → 中文说明（供 Jev 判别，也是报告展示名）。
+///
+/// 目录对齐 `review.yaml` 既有规则类别与蛙蛙写作 22 类特征检测：
+/// 每类写清「是什么 / 不是什么」，含交界处置与示例。
+pub const CLASSIFY_CLASSES: [(&str, &str); 7] = [
+    (
+        "explanation",
+        "解释腔：旁白用「这是/其实/显然/说白了」替读者下结论，把意思讲明白而不是演出来。示例：「这是一个强者对弱者的俯视」。不是比喻模板，也不是情绪直说。",
+    ),
+    (
+        "contrast_template",
+        "模板对照：「不是A而是B」「不是A只是B」「没有A也没有B」等二分/并列否定骨架。示例：「不是不想走，而是不能走」。不是单纯否定句。",
+    ),
+    (
+        "simile_template",
+        "比喻模板：「像/活像/得像」过密或陈套（「像一座山」「静得像一幅画」）。示例：「嘴角勾起一抹弧度」。比喻修辞本身不算——只有惰性模板算。",
+    ),
+    (
+        "operation_log",
+        "操作日志：「把」字操作句连发（把X拖上/放进/推过去），场面像流程记录。示例：「他把门推开，把灯打开，把文件放在桌上」。单次且推动场面的把字句不算。",
+    ),
+    (
+        "filler_narration",
+        "流水账叙述：靠「然后/于是/接着」推进，只有过程没有现场。示例：「然后他走。然后他停。接着他抬头。」。不是记叙顺序本身。",
+    ),
+    (
+        "emotion_telling",
+        "情绪直说：直接命名或展示情绪状态（眼中闪过一丝复杂的情绪、心中暗道、冷笑一声）。示例：「他苦笑了一下」。通过动作暗示的情绪不算。",
+    ),
+    (
+        "normal",
+        "正常：以上都不是——句子自然、具体，或有具体场面支撑。只有当句子明显不属于前六类时才选。",
+    ),
+];
+
+/// 构造一个句子的 classify choice 问题（纯函数，可测试）。
+pub fn classify_question(index: usize, text: &str) -> Value {
+    let mut criteria = Map::new();
+    for (id, description) in CLASSIFY_CLASSES {
+        criteria.insert(id.to_string(), Value::String(description.to_string()));
+    }
+    json!({
+        "type": "choice",
+        "instructions": format!(
+            "Which class best fits this Chinese novel sentence (item s{index})? \"{text}\""
+        ),
+        "criteria": Value::Object(criteria),
+        "minimum_margin": 0.5,
+        "auto_accept": 0.85,
+    })
+}
+
+/// 构造 classify 请求体（纯函数，可测试）。
+pub fn build_classify_request(model: &str, texts: &[String]) -> Value {
+    let mut questions = Map::new();
+    for (index, text) in texts.iter().enumerate() {
+        questions.insert(format!("s{index}"), classify_question(index, text));
+    }
+    let classes: Vec<Value> = CLASSIFY_CLASSES
+        .iter()
+        .map(|(id, description)| json!({"id": id, "description": description}))
+        .collect();
+    let items: Vec<Value> = texts
+        .iter()
+        .enumerate()
+        .map(|(index, text)| json!({"id": format!("s{index}"), "text": text}))
+        .collect();
+    json!({
+        "model": model,
+        "state": {
+            "purpose": "给小说句子打 AI 生成腔诊断标签，用于针对性改写",
+            "items": items,
+            "classes": classes,
+        },
+        "questions": Value::Object(questions),
+    })
+}
+
+/// 对前 top-N 已排序句子调用 Jev 做诊断分类，回填 `slop_class`。
+fn classify_sentences(
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    ranked: &mut [Ranked],
+    top: usize,
+) -> Result<()> {
+    let count = ranked.len().min(top);
+    if count == 0 {
+        return Ok(());
+    }
+    let texts: Vec<String> = ranked[..count].iter().map(|r| r.text.clone()).collect();
+    let body = build_classify_request(model, &texts);
+
+    let response = ureq::post(base_url)
+        .set("Authorization", &format!("Bearer {api_key}"))
+        .set("Content-Type", "application/json")
+        .set("Accept", "application/json")
+        .send_string(&body.to_string());
+    let text = match response {
+        Ok(resp) => resp.into_string().context("读取 classify 响应体失败")?,
+        Err(ureq::Error::Status(code, resp)) => {
+            let body_text = resp.into_string().unwrap_or_default();
+            bail!("classify 端点返回 HTTP {code}: {body_text}");
+        }
+        Err(e) => bail!("classify 端点请求失败: {e}"),
+    };
+    let parsed: Value =
+        serde_json::from_str(&text).with_context(|| "classify 响应不是有效 JSON")?;
+    let answers = parsed
+        .get("answers")
+        .and_then(Value::as_object)
+        .context("classify 响应缺少 answers 对象")?;
+    for (index, item) in ranked.iter_mut().enumerate().take(count) {
+        let id = format!("s{index}");
+        if let Some(choice) = answers
+            .get(&id)
+            .and_then(|a| a.get("choice"))
+            .and_then(Value::as_str)
+        {
+            item.slop_class = Some(choice.to_string());
+        }
+    }
+    Ok(())
+}
+
+/// 由文本计算文风指导语（纯函数，可测试）。
+///
+/// 用 sentinel 的拆分器统计样本的句长与标点画像，产出可注入改写 prompt
+/// 的文风匹配指引；无法拆分时退化为中性指导。
+pub fn style_guidance_from_text(text: &str) -> String {
+    // 直接用简单分句，避免依赖配置加载：按句末标点切分即可得到句长画像。
+    let sentences: Vec<&str> = text
+        .split(['。', '！', '？', '…'])
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    let sentence_count = sentences.len();
+    if sentence_count == 0 {
+        return "参考文风：中性叙述，具体、有画面，避免总结陈词。".to_string();
+    }
+    let lengths: Vec<usize> = sentences
+        .iter()
+        .map(|s| s.chars().filter(|c| !c.is_whitespace()).count())
+        .collect();
+    let total: usize = lengths.iter().sum();
+    let avg = total / sentence_count;
+    let short = lengths.iter().filter(|l| **l <= 15).count();
+    let char_count = text.chars().filter(|c| !c.is_whitespace()).count().max(1);
+    let comma = text.matches('，').count();
+    let comma_per_10k = comma as f64 / char_count as f64 * 10000.0;
+    let connective = ["然后", "于是", "接着"]
+        .iter()
+        .map(|t| text.matches(t).count())
+        .sum::<usize>();
+    let mut guidance = format!(
+        "参考文风（来自样本 {sentence_count} 句）：平均句长约 {avg} 字；短句（≤15字）占 {short}/{sentence_count}；逗号密度约 {comma_per_10k:.1}/万字。"
+    );
+    if short * 2 > sentence_count {
+        guidance.push_str("样本以短句为主，改写宜多用紧凑短句，少用长定语从句。");
+    } else {
+        guidance.push_str("样本长短句交错，改写保持节奏变化。");
+    }
+    if connective > 2 {
+        // 样本自身连接词密集：提示改写少用这类推进词。
+        guidance.push_str(
+            "样本本身较少依赖连接词以外的推进，改写避免堆叠「然后/于是/接着」，用动作和场面推进。",
+        );
+    } else {
+        guidance.push_str("改写具体呈现，不用陈词总结。");
+    }
+    guidance
+}
+
+/// 构造改写 prompt（纯函数，可测试）：命中规则 note 优先于通用 label，
+/// 文风指导注入 system；事实约束恒定。
+#[must_use]
+pub fn rewrite_prompt(ranked: &Ranked, style_guidance: Option<&str>) -> (String, String) {
+    let base = "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
 约束：只改表达，不改事实——人名、数字、引语、关键情节不得变动；\
 不要添加原文没有的信息；只输出改写后的文本，不要解释。";
+    let system = match style_guidance {
+        Some(guidance) => format!("{base}\n{guidance}"),
+        None => base.to_string(),
+    };
     let diagnosis = if !ranked.note.is_empty() {
         ranked.note.as_str()
     } else if !ranked.label.is_empty() {
@@ -456,6 +659,18 @@ fn rewrite_sentence(base_url: &str, api_key: &str, model: &str, ranked: &Ranked)
         "原文（AI 腔概率 {:.2}，问题：{}）：\n{}\n\n请针对上述问题把这段话改写得像人写的。",
         ranked.probability, diagnosis, ranked.text
     );
+    (system, user)
+}
+
+/// 调用生成模型（ferrite 网关，请求头伪装成 omp 客户端）改写一个句子。
+fn rewrite_sentence(
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    ranked: &Ranked,
+    style_guidance: Option<&str>,
+) -> Result<String> {
+    let (system, user) = rewrite_prompt(ranked, style_guidance);
     let body = json!({
         "model": model,
         "messages": [
@@ -582,7 +797,7 @@ fn verify_rewrite(
 /// 命中句（`sentence_lengths.sentences`）通常不含句尾标点/引号；替换时若
 /// 改写结果以标点或引号结尾，则把原文中紧随其后的同类标点一并吞掉，
 /// 避免生成 `。。`、`。"` 这类残留。
-fn apply_rewrites(draft_text: &str, ranked: &[Ranked]) -> String {
+pub fn apply_rewrites(draft_text: &str, ranked: &[Ranked]) -> String {
     const TRAILING: [char; 11] = [
         '。', '！', '？', '；', '，', '：', '"', '”', '’', '」', '』',
     ];
@@ -622,8 +837,13 @@ fn render_text(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
     s.push_str(&format!("模型: {model} | 判定句数: {}\n\n", ranked.len()));
     s.push_str(&format!("## Top {}\n\n", top.min(ranked.len())));
     for (i, r) in ranked.iter().take(top).enumerate() {
+        let class_display = r
+            .slop_class
+            .as_deref()
+            .map(|id| format!(" [诊断: {id}]"))
+            .unwrap_or_default();
         s.push_str(&format!(
-            "{}. [AI 腔概率 {:.2}] {}\n   句子：{}\n   来源：{}\n",
+            "{}. [AI 腔概率 {:.2}] {}{}\n   句子：{}\n   来源：{}\n",
             i + 1,
             r.probability,
             if r.label.is_empty() {
@@ -631,6 +851,7 @@ fn render_text(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
             } else {
                 &r.label
             },
+            class_display,
             r.text,
             r.source
         ));
@@ -691,6 +912,7 @@ fn render_json(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
                 "text": r.text,
                 "source": r.source,
                 "label": r.label,
+                "slop_class": r.slop_class,
                 "rewrite": r.rewrite,
                 "ai_probability_after": r.ai_prob_after,
                 "verify_rejected": r.verify_rejected,

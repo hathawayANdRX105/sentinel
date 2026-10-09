@@ -483,15 +483,11 @@ pub fn find_novel_dir(path: &Path) -> Option<PathBuf> {
         if is_novel_root(&cursor) {
             return Some(cursor);
         }
-        match cursor.parent() {
-            Some(parent) => {
-                if parent == cursor.as_path() {
-                    return None;
-                }
-                cursor = parent.to_path_buf();
-            }
-            None => return None,
+        let parent = cursor.parent()?;
+        if parent == cursor.as_path() {
+            return None;
         }
+        cursor = parent.to_path_buf();
     }
 }
 

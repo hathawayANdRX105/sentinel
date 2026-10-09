@@ -12,7 +12,7 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use sentinel::{audit, config, consistency, reports, stats, study, tools};
+use sentinel::{audit, config, consistency, reports, stats, study, style, tools};
 
 /// 小说大纲/草稿审查与统计工具（Rust 重写）。
 #[derive(Parser)]
@@ -276,6 +276,12 @@ enum Command {
         /// 改写后全文输出路径
         #[arg(long, value_name = "FILE")]
         output_draft: Option<PathBuf>,
+        /// 对 top-N 句子额外做 jev_classify 诊断分类
+        #[arg(long)]
+        classify: bool,
+        /// 文风样本文件：改写时按样本文风特征注入匹配指导
+        #[arg(long, value_name = "FILE")]
+        style_sample: Option<PathBuf>,
     },
     /// 对比两份 analysis JSON，输出 Markdown 指标差异表
     StudyCompare {
@@ -291,6 +297,69 @@ enum Command {
         /// 章节 Markdown 文件
         #[arg(required = true, value_name = "CHAPTER")]
         chapter: PathBuf,
+    },
+    /// 打印风格画像（注入生成 prompt 用），可带场景命中设定卡
+    StyleInspect {
+        /// 风格 id
+        #[arg(required = true, value_name = "STYLE_ID")]
+        style_id: String,
+        /// 风格配置目录（默认 configs/styles）
+        #[arg(long, value_name = "DIR")]
+        styles_dir: Option<PathBuf>,
+        /// 设定卡目录（默认 configs/cards）
+        #[arg(long, value_name = "DIR")]
+        cards_dir: Option<PathBuf>,
+        /// 场景文本：附带该场景命中的设定卡
+        #[arg(long, value_name = "TEXT")]
+        scene: Option<String>,
+    },
+    /// 校验风格/设定卡配置（解析、id 唯一性）
+    StyleCheck {
+        /// 风格配置目录（默认 configs/styles）
+        #[arg(long, value_name = "DIR")]
+        styles_dir: Option<PathBuf>,
+        /// 设定卡目录（默认 configs/cards）
+        #[arg(long, value_name = "DIR")]
+        cards_dir: Option<PathBuf>,
+    },
+    /// 文字冒险：执行一个回合（规则判定确定性，叙述可插拔）
+    Adventure {
+        /// 存档 JSON 文件路径
+        #[arg(long, value_name = "FILE")]
+        state: PathBuf,
+        /// 玩家行动文本（如「攻击侍卫」「前往 雨巷」）
+        #[arg(required = true, value_name = "ACTION")]
+        action: String,
+        /// 新建世界（覆盖已有存档）
+        #[arg(long)]
+        new: bool,
+        /// 世界名
+        #[arg(long, default_value = "无名之地", value_name = "NAME")]
+        world: String,
+        /// 起始场景
+        #[arg(long, default_value = "起点", value_name = "TEXT")]
+        scene: String,
+        /// 角色名
+        #[arg(long, default_value = "旅人", value_name = "NAME")]
+        name: String,
+        /// 角色 HP
+        #[arg(long, default_value = "20", value_name = "N")]
+        hp: i32,
+        /// 角色攻击
+        #[arg(long, default_value = "5", value_name = "N")]
+        attack: i32,
+        /// 角色防御
+        #[arg(long, default_value = "2", value_name = "N")]
+        defense: i32,
+        /// 使用 LLM 叙述器（ferrite 网关）
+        #[arg(long)]
+        llm: bool,
+        /// 设定卡目录（动态注入场景相关设定）
+        #[arg(long, value_name = "DIR")]
+        cards_dir: Option<PathBuf>,
+        /// 匹配设定卡用的场景文本（默认取行动文本）
+        #[arg(long, value_name = "TEXT")]
+        scene_text: Option<String>,
     },
 }
 
@@ -553,6 +622,8 @@ fn main() -> Result<()> {
             verify,
             draft,
             output_draft,
+            classify,
+            style_sample,
         } => {
             let opts = tools::jev::JevReviewOptions {
                 analysis,
@@ -571,6 +642,8 @@ fn main() -> Result<()> {
                 verify,
                 draft,
                 output_draft,
+                classify,
+                style_sample,
             };
             let rc = tools::jev::run(&opts)?;
             if rc != 0 {
@@ -594,6 +667,64 @@ fn main() -> Result<()> {
                     eprintln!("Error: {e}");
                     process::exit(1);
                 }
+            }
+        }
+        Command::StyleInspect {
+            style_id,
+            styles_dir,
+            cards_dir,
+            scene,
+        } => {
+            let styles_dir = styles_dir.unwrap_or_else(style::default_styles_dir);
+            let cards_dir = cards_dir.unwrap_or_else(style::default_cards_dir);
+            let rc =
+                style::cli::inspect(&styles_dir, Some(&cards_dir), &style_id, scene.as_deref())?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::StyleCheck {
+            styles_dir,
+            cards_dir,
+        } => {
+            let styles_dir = styles_dir.unwrap_or_else(style::default_styles_dir);
+            let cards_dir = cards_dir.unwrap_or_else(style::default_cards_dir);
+            let rc = style::cli::check(&styles_dir, &cards_dir)?;
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::Adventure {
+            state,
+            action,
+            new,
+            world,
+            scene,
+            name,
+            hp,
+            attack,
+            defense,
+            llm,
+            cards_dir,
+            scene_text,
+        } => {
+            let opts = style::cli::AdventureOptions {
+                state,
+                action,
+                new_world: new,
+                world,
+                scene,
+                name,
+                hp,
+                attack,
+                defense,
+                llm,
+                cards_dir,
+                scene_text,
+            };
+            let rc = style::cli::adventure(&opts)?;
+            if rc != 0 {
+                process::exit(rc);
             }
         }
     }
