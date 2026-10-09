@@ -1,11 +1,11 @@
-//! `reports/profiles.py` 移植（`reports-profiles` 子命令）：
+//! `reports-profiles` 子命令：
 //! 面向研究的章节句子画像（profiles/*.md + 每 story 目录 SUMMARY.md 镜像树）。
 //!
 //! - 章节分析复用 `audit::draft::analyze_path`（语料学习缺省开启，
-//!   `build_corpus_profile(ctx.corpus_paths_for_targets(files))` 对齐 Python `main`）；
+//!   `build_corpus_profile(ctx.corpus_paths_for_targets(files))` 契约同 `run`）；
 //! - 路径镜像复用 `stats::draft::stats_path_for`（`--output-root` 分支
-//!   逐行对齐 Python `profile_path_for` 的 `drafts` 定位与 `relative_to`）；
-//! - 中文文案逐字照抄 Python 字面量；浮点走 `py_float_str`（Python f-string 语义），
+//!   逐行稳定输出；`profile_path_for` 的 `drafts` 定位与 `relative_to` 语义）；
+//! - 中文文案固定；浮点走 `audit::draft::float_repr`（浮点展示语义），
 //!   bool 走 `True`/`False`。
 
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::audit::draft::{
-    analyze_path, build_corpus_profile, py_float_str, AaBbPattern, Analysis, BattleSequence,
+    analyze_path, build_corpus_profile, float_repr, AaBbPattern, Analysis, BattleSequence,
     DraftContext, EmotionSample, FatigueWindow, LearnedFilterMetric, OverlapEntry, PhraseCount,
     SceneBlock, SpeakerProfile, TermCount, TrackedTermWindow,
 };
@@ -22,19 +22,19 @@ use crate::input::write_text;
 use crate::rules::{build_template_bank, CustomTemplateMetric, TrackedMetric};
 use crate::stats::draft::{chapter_sort_key, collect_chapter_files, stats_path_for, Ctr};
 
-/// `reports-profiles` 子命令参数（对齐 Python `parse_args`：位置 `paths` nargs+、
+/// `reports-profiles` 子命令参数（位置 `paths` nargs+、
 /// `--sample-limit` 缺省 8、`--output-root` 可选镜像根）。
 #[derive(Debug, Clone)]
 pub struct ProfileOptions {
     /// 位置参数：草稿章文件或目录。
     pub paths: Vec<PathBuf>,
-    /// 每节最多渲染的条数（Python 默认 8）。
+    /// 每节最多渲染的条数（默认 8）。
     pub sample_limit: usize,
     /// 可选镜像根目录；缺省写小说本地 draft-stats 树。
     pub output_root: Option<PathBuf>,
 }
 
-/// Python bool f-string 渲染（`True`/`False`）。
+/// bool 渲染（`True`/`False`）。
 fn bool_str(flag: bool) -> &'static str {
     if flag {
         "True"
@@ -52,7 +52,7 @@ fn none_or(value: &str) -> &str {
     }
 }
 
-/// Python `profile_path_for`：缺省 `stats_path_for(draft).parent / profiles / {stem}.md`；
+/// `profile_path_for`：缺省 `stats_path_for(draft).parent / profiles / {stem}.md`；
 /// 有 `output_root` 时镜像到 `output_root / {novel} / {draft-stats 相对树} / profiles / {stem}.md`。
 pub fn profile_path_for(draft_path: &Path, output_root: Option<&Path>) -> Result<PathBuf> {
     let stats = stats_path_for(draft_path, None)?;
@@ -111,7 +111,7 @@ struct HotWindow {
     sample: Vec<String>,
 }
 
-/// Python `format_ranked_items`：`- `{label}` x{count}`（空 → `- 无`）。
+/// `format_ranked_items`：`- `{label}` x{count}`（空 → `- 无`）。
 fn format_ranked_items(items: &[RankedItem], sample_limit: usize) -> Vec<String> {
     if items.is_empty() {
         return vec!["- 无".to_string()];
@@ -123,7 +123,7 @@ fn format_ranked_items(items: &[RankedItem], sample_limit: usize) -> Vec<String>
         .collect()
 }
 
-/// Python `format_metric_items`：
+/// `format_metric_items`：
 /// `- `{name}` x{count}` [` per_10k=`..``] [` `WARN`] [：note]（空 → `- 无`）。
 fn format_metric_items(items: &[MetricItem], sample_limit: usize) -> Vec<String> {
     if items.is_empty() {
@@ -133,7 +133,7 @@ fn format_metric_items(items: &[MetricItem], sample_limit: usize) -> Vec<String>
     for item in items.iter().take(sample_limit) {
         let mut line = format!("- `{}` x{}", item.name, item.count);
         if let Some(per) = item.per_10k {
-            line.push_str(&format!(" per_10k=`{}`", py_float_str(per)));
+            line.push_str(&format!(" per_10k=`{}`", float_repr(per)));
         }
         if item.warn {
             line.push_str(" `WARN`");
@@ -147,7 +147,7 @@ fn format_metric_items(items: &[MetricItem], sample_limit: usize) -> Vec<String>
     lines
 }
 
-/// Python `format_hot_windows`（`title_key` 固定取 `reasons`）。
+/// `format_hot_windows`（`title_key` 固定取 `reasons`）。
 fn format_hot_windows(items: &[HotWindow], sample_limit: usize) -> Vec<String> {
     if items.is_empty() {
         return vec!["- 无".to_string()];
@@ -178,14 +178,14 @@ fn format_hot_windows(items: &[HotWindow], sample_limit: usize) -> Vec<String> {
     lines
 }
 
-/// 段间分隔：标题 + 内容行 + 空行（Python `sections` 循环）。
+/// 段间分隔：标题 + 内容行 + 空行。
 fn push_section(lines: &mut Vec<String>, title: &str, block: &[String]) {
     lines.push(format!("## {title}"));
     lines.extend(block.iter().cloned());
     lines.push(String::new());
 }
 
-/// Python `build_profile_report`：单章句子画像 markdown（逐字渲染）。
+/// `build_profile_report`：单章句子画像 markdown（逐字渲染）。
 pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit: usize) -> String {
     let summary = &analysis.summary;
     let dialogue = &analysis.dialogue;
@@ -202,15 +202,15 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
     lines.push(format!("- paragraphs: `{}`", summary.paragraphs));
     lines.push(format!(
         "- avg_sentence_chars: `{}`",
-        py_float_str(summary.avg_sentence_chars)
+        float_repr(summary.avg_sentence_chars)
     ));
     lines.push(format!(
         "- short_ratio: `{}`",
-        py_float_str(summary.short_sentence_ratio)
+        float_repr(summary.short_sentence_ratio)
     ));
     lines.push(format!(
         "- quote_ratio: `{}`",
-        py_float_str(summary.quote_ratio)
+        float_repr(summary.quote_ratio)
     ));
     lines.push(String::new());
 
@@ -262,7 +262,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
         "- character_voice: speakers=`{}` dominant=`{}` coverage=`{}` warn=`{}`",
         analysis.character_voice.speaker_count,
         none_or(&analysis.character_voice.dominant_speaker),
-        py_float_str(analysis.character_voice.coverage_ratio),
+        float_repr(analysis.character_voice.coverage_ratio),
         bool_str(analysis.character_voice.warn)
     ));
     lines.push(String::new());
@@ -461,7 +461,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
         "- scene_blocks=`{}` dominant_role=`{}` dominance_ratio=`{}` switches=`{}` warn=`{}`",
         scene_map.block_count,
         scene_map.dominant_role,
-        py_float_str(scene_map.dominance_ratio),
+        float_repr(scene_map.dominance_ratio),
         scene_map.switch_count,
         bool_str(scene_map.warn)
     ));
@@ -494,7 +494,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
     lines.push(format!(
         "- dialogue_emotion dominant=`{}` ratio=`{}` shifts=`{}` flat_warn=`{}` volatility_warn=`{}`",
         dialogue_emotions.dominant_emotion,
-        py_float_str(dialogue_emotions.dominant_ratio),
+        float_repr(dialogue_emotions.dominant_ratio),
         dialogue_emotions.shift_count,
         bool_str(dialogue_emotions.flatness_warn),
         bool_str(dialogue_emotions.volatility_warn)
@@ -515,7 +515,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
         character_voice.speaker_count,
         character_voice.identified_lines,
         character_voice.unknown_lines,
-        py_float_str(character_voice.coverage_ratio),
+        float_repr(character_voice.coverage_ratio),
         bool_str(character_voice.warn)
     ));
     let speakers: Vec<&SpeakerProfile> = character_voice.speakers.iter().collect();
@@ -524,10 +524,10 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
             "- speaker `{}` lines=`{}` avg=`{}` q=`{}` short=`{}` judgement=`{}` emotion=`{}`",
             item.speaker,
             item.lines,
-            py_float_str(item.avg_chars),
-            py_float_str(item.question_ratio),
-            py_float_str(item.short_ratio),
-            py_float_str(item.judgement_ratio),
+            float_repr(item.avg_chars),
+            float_repr(item.question_ratio),
+            float_repr(item.short_ratio),
+            float_repr(item.judgement_ratio),
             item.dominant_emotion
         ));
     }
@@ -551,7 +551,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
     lines.push(format!(
         "- tone dominant=`{}` stable_ratio=`{}` switches=`{}` warn=`{}`",
         tone_profile.dominant_tone,
-        py_float_str(tone_profile.stable_ratio),
+        float_repr(tone_profile.stable_ratio),
         tone_profile.switch_count,
         bool_str(tone_profile.warn)
     ));
@@ -565,7 +565,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
         battle_profile.action_hits,
         battle_profile.result_hits,
         battle_profile.damage_hits,
-        py_float_str(battle_profile.result_ratio),
+        float_repr(battle_profile.result_ratio),
         bool_str(battle_profile.warn)
     ));
     let battle_samples: Vec<&BattleSequence> = battle_profile.samples.iter().collect();
@@ -665,8 +665,8 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
                 baseline.p10_chars,
                 baseline.p25_chars,
                 baseline.median_chars,
-                py_float_str(baseline.avg_chars),
-                py_float_str(baseline.short_ratio)
+                float_repr(baseline.avg_chars),
+                float_repr(baseline.short_ratio)
             ));
         }
         let learned_leads = profile
@@ -690,7 +690,7 @@ pub fn build_profile_report(draft_path: &Path, analysis: &Analysis, sample_limit
     lines.join("\n") + "\n"
 }
 
-/// Python `build_story_summary`：story 级 SUMMARY.md（逐字渲染；内部按
+/// `build_story_summary`：story 级 SUMMARY.md（逐字渲染；内部按
 /// `chapter_sort_key` 排序）。
 pub fn build_story_summary(
     story_dir: &Path,
@@ -859,7 +859,7 @@ fn term_list(items: &[TermCount]) -> Vec<RankedItem> {
         .collect()
 }
 
-/// 对齐 Python `main`：收集章节 → 语料画像 → 逐章 `analyze_path` → 写
+/// 收集章节 → 语料画像 → 逐章 `analyze_path` → 写
 /// `profiles/*.md`（先全部章节）→ 按 story 写 `SUMMARY.md`。
 /// 返回（退出码, 应打印路径序列）。
 pub fn run(opts: &ProfileOptions) -> Result<(i32, Vec<PathBuf>)> {
@@ -895,7 +895,7 @@ pub fn run(opts: &ProfileOptions) -> Result<(i32, Vec<PathBuf>)> {
         printed.push(out_path);
     }
 
-    // 按父目录分组（首现序，对齐 Python `defaultdict`），再按 story 目录字典序处理。
+    // 按父目录分组（首现序），再按 story 目录字典序处理。
     let mut groups: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (index, (path, _)) in analyses.iter().enumerate() {
         let parent = path

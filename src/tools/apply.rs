@@ -1,16 +1,15 @@
-//! `tools.apply` 移植（对齐 Python `src/tools/apply.py`）：
-//! 模板候选回写 dry-run 预览 / apply 写回 review.yaml。
+//! `tools.apply`：模板候选回写 dry-run 预览 / apply 写回 review.yaml。
 //!
-//! - dry-run 文本逐行对齐 Python `render_dry_run`。
+//! - dry-run 文本：`render_dry_run` 逐行稳定输出。
 //! - apply 模式经 serde_yaml 原样读改写 `draft` 节（键序保持），
-//!   与 PyYAML `safe_dump(allow_unicode=True, sort_keys=False)` 字节级等价
+//!   YAML dump 与 safe_dump（allow_unicode、不排序键）字节级等价
 //!   （已用 `/tmp/yamlcmp` 对真实 review.yaml 验证 IDENTICAL）。
 //! - Rust 专属测试钩子：`SENTINEL_RULES_YAML` 环境变量可覆盖规则 yaml 路径
-//!   （默认仍为仓库 `configs/rules/review.yaml`，与 Python `DEFAULT_RULES_PATH` 一致）。
-//! - 记录差异（PORTING_NOTES）：f-string 对非 str 标量的 `str()` 渲染
-//!   （bool "True"/"False" vs "true"/"false"；JSON 科学计数数 vs 十进制；
-//!   dict/list → Python repr vs JSON 文本）与 catalog 缺失键的容错
-//!   （Python KeyError/SystemExit 处 Rust 给默认值）。
+//!   （默认仍为仓库 `configs/rules/review.yaml`）。
+//! - 记录差异（PORTING_NOTES）：标量 → 字符串渲染（bool 用 JSON 小写
+//!   "true"/"false"；科学计数数归一为十进制；
+//!   dict/list → JSON 结构化文本而非 repr）与 catalog 缺失键的容错
+//!   （缺失键处 Rust 给默认值而非报错）。
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -22,13 +21,13 @@ use serde_yaml::{Mapping as YamlMapping, Sequence as YamlSequence, Value as Yaml
 use crate::config;
 use crate::stats::Ctr;
 
-/// 三个回写目标（对齐 Python 模块常量；`YAML_TEMPLATE_TARGET` 与 Python 相同仅作文档常量）。
+/// 三个回写目标（模块级常量；`YAML_TEMPLATE_TARGET` 值同规则 yaml 默认路径，仅作文档常量）。
 pub const YAML_TEMPLATE_TARGET: &str = "configs/rules/review.yaml#draft.template_rules";
 pub const YAML_TERM_TARGET: &str = "configs/rules/review.yaml#draft.tracked_terms";
 pub const YAML_INACTIVE_TARGET: &str =
     "configs/rules/review.yaml#draft.inactive_template_candidates";
 
-/// `tools-apply` 子命令参数（对齐 Python `parse_args`）。
+/// `tools-apply` 子命令参数。
 #[derive(Debug, Clone)]
 pub struct ApplyOptions {
     /// 模板目录 CATALOG.json 路径。
@@ -39,8 +38,8 @@ pub struct ApplyOptions {
     pub apply: bool,
 }
 
-/// 与 Python `main` 对齐：返回 (退出码, dry-run 待打印文本)。
-/// apply 模式的 print 已就地输出；错误消息走 stderr + rc=1（Python SystemExit 等价）。
+/// 返回 (退出码, dry-run 待打印文本)。
+/// apply 模式的 print 已就地输出；错误消息走 stderr + rc=1。
 pub fn run(opts: &ApplyOptions) -> Result<(i32, Option<String>)> {
     if !opts.dry_run && !opts.apply {
         eprintln!("Either --dry-run or --apply must be specified.");
@@ -72,10 +71,10 @@ pub fn run(opts: &ApplyOptions) -> Result<(i32, Option<String>)> {
 }
 
 // ---------------------------------------------------------------------------
-// catalog 加载（对齐 Python `load_catalog`）
+// catalog 加载
 // ---------------------------------------------------------------------------
 
-/// Python `load_catalog`：yaml/json 按后缀分支；失败文本对齐 SystemExit。
+/// yaml/json 按后缀分支；失败文案固定，rc=1。
 fn load_catalog(path: &Path) -> Result<Value, String> {
     if !path.exists() {
         return Err(format!("Catalog not found: {}", path.display()));
@@ -104,7 +103,7 @@ fn load_catalog(path: &Path) -> Result<Value, String> {
     Ok(payload)
 }
 
-/// f-string 标量渲染（对齐 Python `str(value)`：int 十进制 / str 原样 / None→"None"）。
+/// 标量渲染（int 十进制 / str 原样 / None→"None"）。
 fn json_scalar(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
@@ -132,7 +131,7 @@ fn json_top(catalog: &Value, key: &str, default: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// build_plan（对齐 Python `build_plan`：动作分类）
+// build_plan（动作分类）
 // ---------------------------------------------------------------------------
 
 fn build_plan(catalog: &Value) -> Vec<Value> {
@@ -153,7 +152,7 @@ fn build_plan(catalog: &Value) -> Vec<Value> {
                 "term_bank"
             } else if target.ends_with(".md") || target.contains("/rules/") {
                 "guide_or_rule"
-            } else if target.ends_with(".py") {
+            } else if target.ends_with(".rs") {
                 "script_recalibration"
             } else {
                 "manual_review"
@@ -177,7 +176,7 @@ fn build_plan(catalog: &Value) -> Vec<Value> {
 }
 
 // ---------------------------------------------------------------------------
-// dry-run 渲染（逐行对齐 Python `render_dry_run`）
+// dry-run 渲染（逐行稳定输出）
 // ---------------------------------------------------------------------------
 
 fn render_dry_run(catalog_path: &Path, catalog: &Value, plan: &[Value]) -> String {
@@ -208,7 +207,7 @@ fn render_dry_run(catalog_path: &Path, catalog: &Value, plan: &[Value]) -> Strin
     }
 
     lines.push("## State Summary".to_string());
-    // Python Counter.most_common()：计数降序，并列保持首次出现序。
+    // 计数降序，并列保持首次出现序。
     for (state, count) in by_state.most_common_all() {
         lines.push(format!("- `{state}` x{count}"));
     }
@@ -259,7 +258,7 @@ fn render_dry_run(catalog_path: &Path, catalog: &Value, plan: &[Value]) -> Strin
 }
 
 // ---------------------------------------------------------------------------
-// apply 写回（对齐 Python `apply_to_template_bank` / `apply_to_term_bank`）
+// apply 写回（template bank / term bank 读改写）
 // ---------------------------------------------------------------------------
 
 /// 规则 yaml 路径：`SENTINEL_RULES_YAML` 可覆盖（测试钩子），默认仓库 review.yaml。
@@ -271,7 +270,7 @@ fn rules_yaml_path() -> std::path::PathBuf {
         .unwrap_or_else(config::default_rules_path)
 }
 
-/// Python `_load_rules_yaml`：解析失败 / 非 dict → `Invalid review rules YAML: {path}`。
+/// 解析失败 / 非 dict → `Invalid review rules YAML: {path}`。
 fn load_rules_yaml(path: &Path) -> Result<YamlValue, String> {
     let text = std::fs::read_to_string(path)
         .map_err(|exc| format!("Invalid review rules YAML: {}: {exc}", path.display()))?;
@@ -283,7 +282,7 @@ fn load_rules_yaml(path: &Path) -> Result<YamlValue, String> {
     Ok(payload)
 }
 
-/// Python `_write_rules_yaml`：`safe_dump(allow_unicode=True, sort_keys=False)` 全量覆写。
+/// 全量覆写（safe_dump 语义：allow_unicode、不排序键）。
 fn write_rules_yaml(path: &Path, payload: &YamlValue) -> Result<(), String> {
     let text = serde_yaml::to_string(payload)
         .map_err(|exc| format!("Failed to write rules YAML {}: {exc}", path.display()))?;
@@ -323,7 +322,7 @@ fn json_str_or(v: Option<&Value>, default: &str) -> String {
 }
 
 fn note_value_chain(item: &Value, existing_note: Option<&YamlValue>) -> String {
-    // Python: `item.get("reason", item.get("note", existing.get("note", "")))`
+    // 回退序：item.reason → item.note → existing.note → 空串
     if item.get("reason").is_some() {
         json_scalar(item.get("reason").expect("reason present"))
     } else if item.get("note").is_some() {
@@ -457,7 +456,7 @@ fn apply_to_term_bank(item: &Value) -> Result<(), String> {
     Ok(())
 }
 
-/// Python `apply_writeback`：template/term 回写，其余打印 skip。
+/// template/term 回写，其余打印 skip。
 fn apply_writeback(plan: &[Value]) -> Result<(), String> {
     for item in plan {
         let action = json_field(item, "action");

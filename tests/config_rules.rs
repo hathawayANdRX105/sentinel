@@ -1,4 +1,4 @@
-//! 规则配置加载回归测试：行为断言移植自 Python 侧 tests/test_rules_config.py。
+//! 规则配置加载回归测试：规则节结构与加载语义的行为断言。
 
 use std::fs;
 

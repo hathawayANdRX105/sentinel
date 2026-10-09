@@ -1,8 +1,7 @@
-//! `reports-learning` / `reports-profiles` 集成测试：与 Python 生成的基线逐字节对照。
+//! `reports-learning` / `reports-profiles` 集成测试：与 golden 基线逐字节对照
+//! （`tests/fixtures/expected/reports-{learning,profiles}/{轮次}`）。
 //!
-//! 基线由 `PYTHONPATH=src python3 -m reports.learning / -m reports.profiles`（同参数、
-//! 相对输入 `tests/fixtures/...`、同 cwd）生成，生成树拷入
-//! `tests/fixtures/expected/reports-{learning,profiles}/{轮次}` 后入库；
+//! 基线以相对输入路径（`tests/fixtures/...`、同 cwd）定稿；
 //! 报告内嵌输入路径（`- source: ...` 与 stdout 行、db 轮 `feedback_log` 绝对路径），
 //! 故测试侧把输入拷到临时根目录运行后，按 `tests/fixtures` → 临时根的标记替换再逐字节对照。
 //! `--output-root` 隐藏参数轮（`output_root`）在测试侧经 API 对照生成树；
@@ -340,7 +339,7 @@ fn profiles_empty_input_guardrail() {
 }
 
 /// CLI 端到端轮：spawn `sentinel reports-learning` / `reports-profiles`，
-/// stdout/退出码与 Python 基线一致；`--output-root` 隐藏参数轮同 cwd 对照；
+/// stdout/退出码与 golden 基线一致；`--output-root` 隐藏参数轮同 cwd 对照；
 /// 空输入轮 stderr 文案与退出码亦对齐。
 #[test]
 fn reports_learning_profiles_cli_round() {

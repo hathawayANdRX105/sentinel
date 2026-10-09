@@ -1,12 +1,12 @@
 //! audit.draft 完整 JSON analysis 端到端对照测试。
 //!
-//! 基线由 Python 参考实现（worktree `src/`，PYTHONPATH=src）在 crate 根目录生成：
+//! 基线由参考实现在 crate 根目录生成：
 //! - `tests/fixtures/expected/draft-corpus.json`：
-//!   `python3 -m audit.draft -i tests/fixtures/draft/drafts --format json`
+//!   `audit-draft -i tests/fixtures/draft/drafts --format json`
 //! - `tests/fixtures/expected/draft-standalone.json`：
-//!   `python3 -m audit.draft tests/fixtures/draft/standalone.md --no-corpus-learning --format json`
+//!   `audit-draft tests/fixtures/draft/standalone.md --no-corpus-learning --format json`
 //!
-//! JSON 深度相等（含 int/float 类型位）；基线更新必须重跑 Python 侧。
+//! JSON 深度相等（含 int/float 类型位）；基线更新必须重跑参考实现。
 
 use std::path::{Path, PathBuf};
 
@@ -43,7 +43,7 @@ fn rel(path: &str) -> PathBuf {
 }
 
 #[test]
-fn draft_corpus_full_analysis_matches_python() {
+fn draft_corpus_full_analysis_golden() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("report.json");
     let expected_raw =
@@ -52,12 +52,12 @@ fn draft_corpus_full_analysis_matches_python() {
     let (_rc, got) = run_json(vec![rel("tests/fixtures/draft/drafts")], &out, false, false);
     assert_eq!(
         expected, got,
-        "corpus-learned full analysis JSON diverges from Python"
+        "corpus-learned full analysis JSON diverges from golden baseline"
     );
 }
 
 #[test]
-fn draft_standalone_no_corpus_matches_python() {
+fn draft_standalone_no_corpus_golden() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("report.json");
     let expected_raw =
@@ -71,7 +71,7 @@ fn draft_standalone_no_corpus_matches_python() {
     );
     assert_eq!(
         expected, got,
-        "standalone no-corpus analysis JSON diverges from Python"
+        "standalone no-corpus analysis JSON diverges from golden baseline"
     );
 }
 

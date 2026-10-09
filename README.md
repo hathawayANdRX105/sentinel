@@ -1,7 +1,6 @@
 # Sentinel
 
-小说审查工具包。从 `novel-novel2` 的 `refactor/review-tool-split` 分支拆出，独立演进。
-现为纯 Rust 实现（crate 位于 `rust/`）：全部 CLI 子命令由 `sentinel` 单二进制提供。
+小说审查工具包，纯 Rust 实现：全部 CLI 子命令由 `sentinel` 单二进制提供。
 
 ## 目录
 
@@ -9,23 +8,20 @@
 sentinel/
 ├── configs/
 │   └── rules/review.yaml  # 统一规则配置（模板、词项、大纲/草稿检测）
-├── rust/                  # Rust crate（源码 + 集成测试）
-│   ├── src/               # audit / stats / reports / consistency / tools
-│   ├── tests/             # golden 逐字节对照 + 行为断言（fixtures/ 与 expected/）
-│   └── PORTING_NOTES.md   # Python↔Rust 语义裁决记录（移植坑位与定论）
+├── src/                   # audit / stats / reports / consistency / tools / study
+├── tests/                 # golden 逐字节对照 + 行为断言（fixtures/ 与 expected/）
+├── Cargo.toml
 └── justfile               # 构建与验证入口
 ```
 
 ## 快速使用（Rust）
 
 ```bash
-cd rust
-
-cargo build --all-targets --all-features   # 编译
+cargo build --release                      # 编译（产物 target/release/sentinel）
 cargo test  --all-targets --all-features   # 全量测试（含 golden 基线对照）
 
-cargo run --bin sentinel -- rules                                    # 校验 review.yaml
-cargo run --bin sentinel -- audit-draft path/to/ch01.md --format json  # 草稿全量分析
+cargo run --bin sentinel -- rules                                     # 校验 review.yaml
+cargo run --bin sentinel -- audit-draft path/to/ch01.md --format json # 草稿全量分析
 cargo run --bin sentinel -- stats-draft path/to/story-dir --output-root /tmp/stats-out
 ```
 
@@ -73,11 +69,11 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 
 ## 测试与 golden 基线
 
-- `rust/tests/` 集成测试与 `rust/tests/fixtures/expected/` 的 golden 基线逐字节对照
+- `tests/` 集成测试与 `tests/fixtures/expected/` 的 golden 基线逐字节对照
   （报告内嵌输入路径，测试侧先拷贝到临时根再按标记替换比对；`--format json`
   走零归一化深比较）；行为断言（如章末趋势合流、评审派单）直接打 Rust pub API。
-- `rust/PORTING_NOTES.md` 记录移植语义裁决（banker's rounding、fancy-regex 回引用、
-  Counter 并列序等坑位与 N/A 定论），改实现前先查。
+- 基线在移植验收时由旧工具链字节定稿，此后以本 crate 实跑输出维护：
+  行为有意变更时重跑对应子命令再生并随改动入库。
 
 ## 与 novel 项目的关系
 

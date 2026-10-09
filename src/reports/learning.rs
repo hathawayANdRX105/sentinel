@@ -1,12 +1,12 @@
-//! `reports/learning.py` 移植（`reports-learning` 子命令）：
+//! `reports-learning` 子命令：
 //! 草稿章评审学习日志（learning/*.md + 每 story 目录 SUMMARY.md 镜像树）。
 //!
 //! - 章节分析复用 `audit::draft::analyze_path`（语料学习缺省开启）；
 //! - 一致性快照来自 `consistency::build_story_conflict_snapshot`；
-//! - 对齐信号来自 `reports::alignment`（`lib/alignment.py` 移植）；
+//! - 对齐信号来自 `reports::alignment`；
 //! - 章末标签/连续段复用 `stats::draft`（`infer_ending_label`/`summarize_runs`/
 //!   `ending_flow_text`，展示名走 `EndingLabels` 查表）；
-//! - 中文文案逐字照抄 Python 字面量；排序/截断语义逐行对齐（stable 序 + 首现序）。
+//! - 中文文案固定；排序/截断语义稳定（stable 序 + 首现序）。
 
 use std::path::{Path, PathBuf};
 
@@ -26,13 +26,13 @@ use crate::stats::draft::{
 };
 use crate::stats::Ctr;
 
-/// `reports-learning` 子命令参数（对齐 Python `parse_args`：位置 `paths` nargs+、
+/// `reports-learning` 子命令参数（位置 `paths` nargs+、
 /// `--sample-limit` 缺省 6）。
 #[derive(Debug, Clone)]
 pub struct LearningOptions {
     /// 位置参数：草稿章文件或目录。
     pub paths: Vec<PathBuf>,
-    /// 每条规则最多记录的样本行数（Python 默认 6）。
+    /// 每条规则最多记录的样本行数（默认 6）。
     pub sample_limit: usize,
 }
 
@@ -58,12 +58,12 @@ pub struct Suggestion {
     pub reason: String,
 }
 
-/// 码点前缀（Python `s[:n]`）。
+/// 取字符串前 n 个码点。
 fn prefix_chars(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
 }
 
-/// Python bool f-string 渲染（`True`/`False`）。
+/// bool 渲染（`True`/`False`）。
 fn bool_str(flag: bool) -> &'static str {
     if flag {
         "True"
@@ -112,7 +112,7 @@ fn bucket_priority(bucket: &str) -> i32 {
     }
 }
 
-/// Python `collect_template_backlog`：`template_candidates` 前 20 条按
+/// `collect_template_backlog`：`template_candidates` 前 20 条按
 /// 名字分组 → 组内按（优先级, 桶名）取首条 → 组间按最小优先级 stable 排 → 截 12。
 pub fn collect_template_backlog(analysis: &Analysis) -> Vec<BacklogEntry> {
     let mut grouped: Vec<(String, Vec<BacklogEntry>)> = Vec::new();
@@ -148,7 +148,7 @@ pub fn collect_template_backlog(analysis: &Analysis) -> Vec<BacklogEntry> {
     backlog
 }
 
-/// Python `collect_bonus_backlog`：6 类加分候选（截 6）。
+/// `collect_bonus_backlog`：6 类加分候选（截 6）。
 pub fn collect_bonus_backlog(analysis: &Analysis) -> Vec<BacklogEntry> {
     let mut backlog: Vec<BacklogEntry> = Vec::new();
     let entry = |name: &str, reason: &str, sample: String| BacklogEntry {
@@ -213,7 +213,7 @@ pub fn collect_bonus_backlog(analysis: &Analysis) -> Vec<BacklogEntry> {
     backlog
 }
 
-/// Python `collect_rule_suggestions`：风格/规则侧建议（截 6）。
+/// `collect_rule_suggestions`：风格/规则侧建议（截 6）。
 pub fn collect_rule_suggestions(analysis: &Analysis) -> Vec<Suggestion> {
     let suggestion = |target: &str, reason: &str| Suggestion {
         target: target.to_string(),
@@ -270,7 +270,7 @@ pub fn collect_rule_suggestions(analysis: &Analysis) -> Vec<Suggestion> {
     suggestions
 }
 
-/// Python `build_consistency_suggestions`：一致性快照侧建议（`None`/不可用 → 空；截 6）。
+/// `build_consistency_suggestions`：一致性快照侧建议（`None`/不可用 → 空；截 6）。
 pub fn build_consistency_suggestions(snapshot: Option<&StoryConflictSnapshot>) -> Vec<Suggestion> {
     let Some(snapshot) = snapshot else {
         return Vec::new();
@@ -332,10 +332,10 @@ pub fn build_consistency_suggestions(snapshot: Option<&StoryConflictSnapshot>) -
     suggestions
 }
 
-/// Python `build_learning_log`：单章学习日志 markdown（逐字渲染）。
+/// `build_learning_log`：单章学习日志 markdown（逐字渲染）。
 ///
-/// 对齐需 `PlanEngine`（施工图信号）与 `EndingLabels`（章末展示名），
-/// 故签名较 Python 多这两个参数；`snapshot` 恒有（不可用时渲染「无」分支）。
+/// 对齐需 `PlanEngine`（施工图信号）与 `EndingLabels`（章末展示名）参数；
+/// `snapshot` 恒有（不可用时渲染「无」分支）。
 pub fn build_learning_log(
     engine: &PlanEngine,
     labels: &EndingLabels,
@@ -617,7 +617,7 @@ pub fn build_learning_log(
     Ok(lines.join("\n") + "\n")
 }
 
-/// Python `build_story_summary`：story 级 SUMMARY.md（逐字渲染；`analyses` 内部按
+/// `build_story_summary`：story 级 SUMMARY.md（逐字渲染；`analyses` 内部按
 /// `chapter_sort_key` 排序，`snapshots` 按章节路径查表，缺失视为不可用快照）。
 pub fn build_story_summary(
     engine: &PlanEngine,
@@ -798,7 +798,7 @@ pub fn build_story_summary(
     Ok(lines.join("\n") + "\n")
 }
 
-/// 对齐 Python `main`：收集章节 → 分析 → 一致性快照 → 写 `learning/*.md`
+/// 收集章节 → 分析 → 一致性快照 → 写 `learning/*.md`
 /// （先全部章节）→ 按 story 写 `SUMMARY.md`。返回（退出码, 应打印路径序列）。
 pub fn run(opts: &LearningOptions) -> Result<(i32, Vec<PathBuf>)> {
     let files = collect_chapter_files(&opts.paths)?;
@@ -848,7 +848,7 @@ pub fn run(opts: &LearningOptions) -> Result<(i32, Vec<PathBuf>)> {
         printed.push(out_path);
     }
 
-    // 按父目录分组（首现序，对齐 Python `defaultdict`），再按 story 目录字典序处理。
+    // 按父目录分组（首现序），再按 story 目录字典序处理。
     let mut groups: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (index, (path, _)) in analyses.iter().enumerate() {
         let parent = path

@@ -41,7 +41,7 @@ writeback_queue:
   - state: hardcoded
     kind: script
     name: s1
-    target: src/stats/draft.py
+    target: src/stats/draft.rs
     stories: story2
     count: 1
     reason: 脚本标定

@@ -1,9 +1,9 @@
-//! 概念卡（concept card）审查，移植自 Python `src/audit/concept.py`。
+//! 概念卡（concept card）审查：扫描概念卡目录，输出分类规则告警与 markdown 报告。
 //!
-//! 与 Python 语义逐项对齐：
-//! - `CATEGORY_RULES` 为源码内硬编码分类规则，键序/字段序按 Python dict 字面量顺序保持；
-//! - 字段/小节 dict 的「同键覆盖」用按位置替换的 Vec 模拟（首现序 + 末值）；
-//! - 报告渲染（markdown）与 Python `format_report` 逐字节对齐。
+//! 顺序语义：
+//! - `CATEGORY_RULES` 为源码内硬编码分类规则表，键序/字段序按字面量声明顺序保持；
+//! - 字段/小节「同键覆盖」用按位置替换的 Vec 模拟（首现序 + 末值）；
+//! - 报告渲染（markdown）为逐字节稳定输出。
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ use anyhow::{Context, Result};
 use fancy_regex::Regex;
 use serde::Serialize;
 
-/// 概念卡审查警告，对应 Python `audit/concept.py` 的 `Warning` dataclass。
+/// 概念卡审查警告（`Warning` 结构体，字段序固定）。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Warning {
     pub line_no: u32,
@@ -36,10 +36,10 @@ static HEADING_RE: LazyLock<Regex> =
 static FIELD_RE: LazyLock<Regex> =
     LazyLock::new(|| fancy_regex::Regex::new(r"^\s*-\s*([^：:]+)[：:]\s*(.*)$").unwrap());
 
-/// 公共必备字段（对应 Python `COMMON_FIELDS`）。
+/// 公共必备字段。
 const COMMON_FIELDS: &[&str] = &["状态", "所属分类", "卡片 ID", "别名 / 英文名", "关联卡片"];
 
-/// 单个分类目录的审查规则（对应 Python `CATEGORY_RULES` 的一个条目）。
+/// 单个分类目录的审查规则（`CATEGORY_RULES` 表的一个条目）。
 struct CategoryRule {
     name: &'static str,
     allowed_categories: &'static [&'static str],
@@ -49,7 +49,7 @@ struct CategoryRule {
     id_prefix: &'static str,
 }
 
-/// 分类规则表，顺序与 Python dict 字面量一致（`required_heading_fields` 的迭代序影响告警序）。
+/// 分类规则表，顺序即告警检查顺序（`required_heading_fields` 的迭代序影响告警序）。
 const CATEGORY_RULES: &[CategoryRule] = &[
     CategoryRule {
         name: "characters",
@@ -188,7 +188,7 @@ fn normalize_heading(title: &str) -> String {
 
 type Heading = (u32, String, u32);
 
-/// `parse_fields`：全文件扫描 `- 名：值` 字段；同名字段按 dict 覆盖语义
+/// `parse_fields`：全文件扫描 `- 名：值` 字段；同名字段取末值
 /// （保持首现位置、取末次值/行号）。
 fn parse_fields(lines: &[&str]) -> Vec<(String, (u32, String))> {
     let mut fields: Vec<(String, (u32, String))> = Vec::new();
@@ -286,7 +286,7 @@ fn is_empty_value(value: &str) -> bool {
     stripped.contains("已确认 / 待确认")
 }
 
-/// `audit_card`：单张概念卡的全部告警（按 Python 检查顺序）。
+/// `audit_card`：单张概念卡的全部告警（按固定检查顺序）。
 pub fn audit_card(path: &Path) -> Result<Vec<Warning>> {
     let text = fs::read_to_string(path)
         .with_context(|| format!("无法读取概念卡文件 {}", path.display()))?;
@@ -404,7 +404,7 @@ pub fn audit_card(path: &Path) -> Result<Vec<Warning>> {
     Ok(warnings)
 }
 
-/// Python `path.parent.name`：父目录名；裸文件名（无父目录）时为 "."。
+/// 父目录名；裸文件名（无父目录）时为 "."。
 fn parent_name(path: &Path) -> String {
     path.parent()
         .and_then(|p| p.file_name())
@@ -412,7 +412,7 @@ fn parent_name(path: &Path) -> String {
         .unwrap_or_else(|| ".".to_string())
 }
 
-/// `format_report`：markdown 报告，与 Python 逐字节一致。
+/// `format_report`：markdown 报告（输出逐字节稳定）。
 pub fn format_report(path: &Path, warnings: &[Warning]) -> String {
     let status = if warnings.is_empty() { "OK" } else { "WARN" };
     let name = path
@@ -485,7 +485,7 @@ pub fn iter_targets(raw_paths: &[PathBuf], include_templates: bool) -> Vec<PathB
     targets
 }
 
-/// Python `"_templates" in path.parts`：路径部件（Unix 分隔）含 `_templates`。
+/// 路径部件（Unix 分隔）是否含 `_templates`。
 fn in_templates_dir(path: &Path) -> bool {
     path.to_string_lossy()
         .split('/')

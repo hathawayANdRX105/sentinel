@@ -1,15 +1,14 @@
 //! `study.compare`：对比两份 analysis JSON，输出 Markdown 指标差异表。
 //!
-//! 行为对齐 Python `src/study/compare.py`（90 行）：
+//! 行为：
 //! - `schema_version` 不等 → stderr `Error: schema_version mismatch: baseline={bv}, applied={av}` rc=1
 //! - 提取 `summary` 顶层 int/float 与二级 dict 内 int/float → Markdown 表
-//! - 表头/分隔行/数值渲染对齐 py f-string 语义（int 不带 `.0`，float 用 repr 风格）
+//! - 表头/分隔行/数值渲染：int 不带 `.0`，float 走 `audit::draft::float_repr`
 //! - 非数字 `summary` 键逐行 `不参与比较`
 //! - 缺 `summary` 键容忍（视为空）
 //!
-//! 有意放宽（py 缺陷修复）：`audit-draft --format json` 输出顶层数组
-//! `[{source, summary, ...}]`，py `compare.py` 对此直接崩溃（已报告缺陷）；
-//! Rust 面按意图取数组首元素，空数组报错。
+//! `audit-draft --format json` 输出顶层数组
+//! `[{source, summary, ...}]`；本模块按意图取数组首元素，空数组报错。
 
 use std::collections::BTreeMap;
 
@@ -40,7 +39,7 @@ fn schema_version(analysis: &Value) -> Option<&Value> {
     (v != &Value::Null).then_some(v)
 }
 
-/// `schema_version` 的 py f-string 渲染（`str(value)`）：缺键/None → `None`，
+/// `schema_version` 渲染：缺键/None → `None` 字符串，
 /// bool → `True`/`False`，str 原样（不带引号），number 走 JSON 表示。
 fn schema_version_repr(v: Option<&Value>) -> String {
     match v {
@@ -98,26 +97,26 @@ fn all_summary_keys(analysis: &Value) -> Vec<String> {
     all.into_iter().collect()
 }
 
-/// 内部辅助：由 `(f64, is_int)` 渲染数字（int 不带 `.0`，float 用 py 风格）。
+/// 内部辅助：由 `(f64, is_int)` 渲染数字（int 不带 `.0`，float 走 `float_repr`）。
 fn render_number_by_f64(val: f64, is_int: bool) -> String {
     if is_int {
         (val as i64).to_string()
     } else {
-        crate::audit::draft::py_float_str(val)
+        crate::audit::draft::float_repr(val)
     }
 }
 
-/// 渲染 delta：对齐 Python `int - int → int`（不带 `.0`）、`float 运算 → float`（`.0`）。
+/// 渲染 delta：两侧 int 且差为整 → 整数字符串；否则按 float 渲染。
 fn render_delta(b: f64, b_is_int: bool, a: f64, a_is_int: bool) -> String {
     let delta = a - b;
     if b_is_int && a_is_int && delta.fract() == 0.0 {
         (delta as i64).to_string()
     } else {
-        crate::audit::draft::py_float_str(delta)
+        crate::audit::draft::float_repr(delta)
     }
 }
 
-/// 构建对比 Markdown 表（对齐 Python `compare_analyses`）。
+/// 构建对比 Markdown 表。
 ///
 /// 调用方须先完成 `schema_version` 校验。
 pub fn build_compare_table(baseline: &Value, applied: &Value) -> String {

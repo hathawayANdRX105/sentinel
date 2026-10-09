@@ -1,8 +1,8 @@
 //! 规则配置加载。
 //!
-//! 把 `configs/rules/review.yaml` 解析为强类型结构，对应 Python 版 `lib/rules.py`
-//! 的 `load_rules` / `mapping_at` / `list_at`：缺失关键节或 YAML 非法时返回错误。
-//! 未知字段被 serde 忽略，与 Python 加载器的宽容行为保持一致。
+//! 把 `configs/rules/review.yaml` 解析为强类型结构（`load` / `mapping_at` /
+//! `list_at`）：缺失关键节或 YAML 非法时返回错误。
+//! 未知字段被 serde 忽略（宽容解析）。
 
 use std::collections::HashMap;
 use std::fs;
@@ -219,7 +219,7 @@ pub struct Lexicon {
 /// 保留 YAML 插入序的「标签 → 词表」映射。
 ///
 /// `dialogue_emotion_rules` / `tone_rules` 的首匹配语义依赖 YAML 里的书写顺序
-/// （Python `load_rules` 读的是普通 dict，即插入序）。`serde_yaml::Mapping`
+/// （规则顺序 = YAML 插入序）。`serde_yaml::Mapping`
 /// 保留插入序，据此直接转有序 `Vec` 对；不能用 `HashMap`（丢序），也不能
 /// 直接声明 `Vec<(K, V)>`（YAML 值是 mapping，不是 sequence，反序列化失败）。
 #[derive(Debug, Clone, PartialEq, Default)]

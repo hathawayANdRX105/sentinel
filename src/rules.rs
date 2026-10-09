@@ -1,9 +1,9 @@
-//! `audit.draft` 规则扫描与指标计算移植。
+//! `audit-draft` 规则扫描与指标计算。
 //!
-//! 与 Python 语义逐项对齐：
+//! 语义契约：
 //! - [`find_hits`] 逐行统计非重叠匹配数，前 `sample_limit` 个命中行各记一条样本（整行 strip）；
 //! - [`density`] 以去掉换行符后的全文字符数为分母；
-//! - `per_10k` 经 Python `round(x, 2)`（二进制精确值 + 半偶舍入，见 [`round2`]）；
+//! - `per_10k` 经 [`round2`]（二进制精确值 + 半偶舍入）；
 //! - 超标判定为 `per_10k > max_per_10k` 严格大于。
 //!
 //! 正则引擎用 `fancy_regex`：`review.yaml` 的模板含回引用（`\1`），
@@ -17,16 +17,16 @@ use serde::Serialize;
 
 use crate::config::{DraftConfig, RegexRule, TemplateRule, TrackedTerm};
 
-/// 单行命中样本（对应 Python `Hit(line_no, line.strip())`）。
+/// 单行命中样本（行号 + 整行 strip）。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Hit {
     pub line_no: usize,
     pub snippet: String,
 }
 
-/// Python `round(x, 2)`：对二进制精确值做半偶舍入。
+/// 将 `x` 四舍五入到 2 位小数：对二进制精确值做半偶舍入。
 ///
-/// 与 CPython `round(x, 2)` 逐位一致：实现内用整数还原精确二进制值正确舍入，
+/// 与「先算精确值再半偶舍入」逐位一致：实现内用整数还原精确二进制值正确舍入，
 /// 避免 `x * 100.0` 先引入一次乘法舍入造成的双重舍入偏差（详见函数内注释）。
 #[must_use]
 pub fn round2(x: f64) -> f64 {
@@ -36,7 +36,7 @@ pub fn round2(x: f64) -> f64 {
     }
     // 对 x*100 的二进制精确值做正确舍入（半偶）。
     // 直接算 x*100.0 会先引入一次乘法舍入：2.675 的存储值略小于 2.675，
-    // 但 2.675f64 * 100.0 舍入到 267.5，半偶得 2.68；CPython 得 2.67。
+    // 但 2.675f64 * 100.0 舍入到 267.5，半偶得 2.68；期望值 2.67。
     // 这里用 u128 整数还原精确二进制值：x = mantissa * 2^exponent。
     let bits = x.to_bits();
     let mantissa = (bits & ((1u64 << 52) - 1)) | (1u64 << 52);
@@ -61,7 +61,7 @@ pub fn round2(x: f64) -> f64 {
     (nearest as f64) / 100.0
 }
 
-/// 每万字密度；分母为 0 时返回 0.0（对齐 Python `density`）。
+/// 每万字密度；分母为 0 时返回 0.0。
 #[must_use]
 pub fn density(count: usize, chars: usize) -> f64 {
     if chars == 0 {
@@ -166,7 +166,7 @@ pub fn build_rule_metrics(
     (metrics, warned)
 }
 
-/// `build_tracked_term_metrics` 的单词指标（`category` 在前，对齐 Python dict 字段集合）。
+/// `build_tracked_term_metrics` 的单词指标（`category` 在前，字段序固定）。
 #[derive(Debug, Clone, Serialize)]
 pub struct TrackedMetric {
     pub category: String,
@@ -274,7 +274,7 @@ pub fn build_tracked_term_metrics(
 }
 
 /// 模板库：跳过空 pattern、`enabled: false`、以及与内置六组规则重名的条目
-/// （对齐 Python `load_template_bank` 的 `HARDCODED_TEMPLATE_RULE_NAMES` 过滤）。
+/// （重名条目按 `HARDCODED_TEMPLATE_RULE_NAMES` 判定）。
 #[must_use]
 pub fn build_template_bank(draft: &DraftConfig) -> Vec<TemplateRule> {
     let regex = &draft.regex_rules;
@@ -306,7 +306,7 @@ pub fn build_template_bank(draft: &DraftConfig) -> Vec<TemplateRule> {
         .collect()
 }
 
-/// `custom_templates` 节指标（`category` 字段在末尾，对齐 Python dict 结构）。
+/// `custom_templates` 节指标（`category` 字段在末尾，字段序固定）。
 #[derive(Debug, Clone, Serialize)]
 pub struct CustomTemplateMetric {
     pub name: String,
@@ -349,7 +349,7 @@ pub fn build_custom_template_metrics(
     Ok((metrics, warned))
 }
 
-/// `audit-draft` 规则指标报告（阶段 1a 覆盖的 analysis 顶层节，键名与 Python 一致）。
+/// `audit-draft` 规则指标报告（阶段 1a 覆盖的 analysis 顶层节，键名遵循 JSON 契约）。
 #[derive(Debug, Serialize)]
 pub struct DraftRuleReport<'a> {
     pub source: &'a str,
@@ -366,7 +366,7 @@ pub struct DraftRuleReport<'a> {
 
 /// 对单篇草稿文本跑全部规则节指标。
 ///
-/// `chars` 对齐 Python `len(text.replace("\n", ""))`：去掉换行符后的全文
+/// `chars`：去掉换行符后的全文
 /// Unicode 码点数（含空白与标点，非正文净字数）。
 pub fn audit_draft_report<'a>(
     draft: &DraftConfig,

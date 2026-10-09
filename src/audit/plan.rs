@@ -1,12 +1,12 @@
-//! 大纲（arc/story/chapter）plan 文件审查，移植自 Python `src/audit/plan.py`。
+//! 大纲（arc/story/chapter）plan 文件审查：收集标题、小节与标签块，输出规则告警与 markdown 报告。
 //!
-//! 与 Python 语义逐项对齐：
-//! - 标题解析、小节收集、标签块解析（同名的 dict 覆盖语义用「按位置替换」模拟）；
-//! - `round`/排序/`min` 平手等坑按契约处理（本项目 plan 节无 float 指标，
+//! 语义契约：
+//! - 标题解析、小节收集、标签块解析（同名的「同键覆盖」语义用「按位置替换」模拟）；
+//! - 排序/取最小值/平手处理按契约执行（本项目 plan 节无 float 指标，
 //!   仅排序与词数统计）；
 //! - 正则统一 `fancy_regex`；`ignore_case` 规则在 pattern 前缀 `(?i)`；
-//! - `str.count`（非重叠）→ `str::matches` 计数；`len(str)` 码点 → `chars().count()`；
-//! - 报告渲染（markdown）与 Python `format_report` 逐字节对齐。
+//! - 非重叠计数（`str::matches`）；码点计数（`chars().count()`）；
+//! - 报告渲染（markdown）为逐字节稳定输出。
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
@@ -20,7 +20,7 @@ use serde::Serialize;
 use crate::config::{self, PlanConfig, PlanRegexRule};
 use crate::input;
 
-/// 大纲审查警告，对应 Python `audit/plan.py` 的 `Warning` dataclass。
+/// 大纲审查警告（`Warning` 结构体，字段序固定）。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Warning {
     pub line_no: u32,
@@ -29,7 +29,7 @@ pub struct Warning {
     pub snippet: String,
 }
 
-/// 构造一条警告（顺序与 Python dataclass 字段一致）。
+/// 构造一条警告（字段序按结构体定义）。
 fn warn(line_no: u32, kind: &str, message: &str, snippet: &str) -> Warning {
     Warning {
         line_no,
@@ -47,7 +47,7 @@ pub enum OutputFormat {
     Markdown,
 }
 
-// 模块级正则（对应 plan.py 常量；HEADING 用 `^` 锚定 + fancy find 等价 Python match）。
+// 模块级正则（HEADING 用 `^` 锚定，取首个命中即等价于 match 语义）。
 static HEADING_RE: LazyLock<Regex> =
     LazyLock::new(|| fancy_regex::Regex::new(r"^(#{1,6})\s+(.+?)\s*$").unwrap());
 static LABEL_RE: LazyLock<Regex> =
@@ -65,12 +65,12 @@ fn re_find_all(re: &Regex, text: &str) -> usize {
     re.find_iter(text).filter(|m| m.is_ok()).count()
 }
 
-/// Python `len(str)`：码点数。
+/// 码点数。
 fn cpl(s: &str) -> u32 {
     s.chars().count() as u32
 }
 
-/// Python 字符串 `[:n]` 切片：取前 n 个码点。
+/// 字符串切片：取前 n 个码点。
 fn take_chars(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
 }
@@ -85,7 +85,7 @@ pub type Heading = (u32, String, u32);
 /// 小节行：(line_no, 原始行)。
 pub type BodyLine = (u32, String);
 
-/// 小节容器：键序=首次插入序、值=最后一次赋值（模拟 Python dict 覆盖）。
+/// 小节容器：键序=首次插入序、值=最后一次赋值（同键覆盖语义）。
 pub struct Sections {
     names: Vec<String>,
     bodies: Vec<Vec<BodyLine>>,
@@ -126,7 +126,7 @@ impl Sections {
     }
 }
 
-/// 标签块容器：`find_label_blocks` 的 dict 语义（键序=首现序，同键追加）。
+/// 标签块容器：`find_label_blocks` 语义（键序=首现序，同键追加）。
 struct LabelBlocks {
     labels: Vec<String>,
     blocks: Vec<Vec<BodyLine>>,
@@ -145,7 +145,7 @@ impl LabelBlocks {
     }
 }
 
-/// 已编译的 10 条 plan 正则（对应 plan.py 模块级 `_compiled_regex` 结果）。
+/// 已编译的 10 条 plan 正则。
 struct PlanRegs {
     style_leak: Regex,
     abstract_lookpoint: Regex,
@@ -159,7 +159,7 @@ struct PlanRegs {
     story_prose_leak: Regex,
 }
 
-/// 大纲审查引擎：持有 plan 节配置 + 编译后的正则（对应 plan.py 模块级常量）。
+/// 大纲审查引擎：持有 plan 节配置 + 编译后的正则。
 pub struct PlanEngine {
     cfg: PlanConfig,
     regs: PlanRegs,
@@ -767,7 +767,7 @@ fn audit_chapter_plan(
             witness_scene_hits += 1;
         }
     }
-    // Python `sorted(generic_scene_terms.items())`：按词排序；BTreeMap 迭代序一致。
+    // BTreeMap 迭代序即按词排序。
     for (term, titles) in &generic_scene_terms {
         if titles.len() >= 2 {
             let snippet = titles
@@ -980,7 +980,7 @@ pub fn audit_file(engine: &PlanEngine, path: &Path) -> Result<(String, Vec<Warni
     Ok((plan_type, warnings))
 }
 
-/// `format_report`：markdown 报告，与 Python 逐字节一致（`path.name` 为最后一级路径）。
+/// `format_report`：markdown 报告（输出逐字节稳定；`path.name` 为最后一级路径）。
 pub fn format_report(path: &Path, plan_type: &str, warnings: &[Warning]) -> String {
     let status = if warnings.is_empty() { "OK" } else { "WARN" };
     let name = path
@@ -1017,7 +1017,7 @@ pub fn format_report(path: &Path, plan_type: &str, warnings: &[Warning]) -> Stri
     lines.join("\n")
 }
 
-/// JSON 报告单篇结构（字段名与 Python `_json_report` 一致，`type` 为 Python 保留键名）。
+/// JSON 报告单篇结构（`type` 为 JSON 键名）。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 struct JsonReport {
     source: String,

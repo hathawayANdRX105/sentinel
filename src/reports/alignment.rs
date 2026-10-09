@@ -1,7 +1,7 @@
-//! `lib/alignment.py` 移植：章节施工图（chapter-plan）与草稿的功能/章末对齐信号。
+//! 章节施工图（chapter-plan）与草稿的功能/章末对齐信号。
 //!
 //! 由 `reports::scorecard` 消费（`reports-scorecard` 子命令）；报告只读，
-//! 全部中文文案逐字照抄 Python 字面量。
+//! 全部中文文案固定。
 
 use std::path::{Path, PathBuf};
 
@@ -384,8 +384,8 @@ pub fn classify_alignment_status(
     }
 }
 
-/// plan-draft 对齐快照（对应 `build_plan_draft_alignment` 返回的 dict 形状；
-/// 不可用时未填键为 `None`，渲染侧按 Python `.get(key, 默认)` 语义取默认值）。
+/// plan-draft 对齐快照（字段形状跟随 `build_plan_draft_alignment` 返回值；
+/// 不可用时未填键为 `None`，渲染侧按键取默认值）。
 #[derive(Debug, Clone, Default)]
 pub struct Alignment {
     pub available: bool,

@@ -1,4 +1,4 @@
-//! `tests/test_rules_config.py` 单元级行为断言移植：
+//! 规则解析与 ngram 层行为断言：
 //! - `test_analyze_text_hits_yaml_template_rule`：`analyze_text` 携带 YAML
 //!   模板库/词库（默认 `configs/rules/review.yaml`）时，输入文本必须在内置
 //!   `patterns` 节（label `不是A而是B`，即 YAML `template_rules` 中与内置规则
@@ -29,7 +29,7 @@ fn analyze_text_hits_negation_contrast_pattern() {
     assert!(!hits.is_empty(), "expected YAML pattern 不是A而是B to hit");
     assert!(hits[0].count >= 1, "命中数应 >= 1，实际 {}", hits[0].count);
 }
-/// Python `test_ngram_terms_keep_maximal_repetition` 移植：
+/// ngram 去重钉住用例：
 /// `"继续调查" * 4` 下 2/3/4-gram 均过 `min_count_by_size={2:2,3:2,4:2}`，
 /// 去重后最大重复短语 `("继续调查", 4)` 必须保留（其 2/3 字子串被覆盖，
 /// 但母串本身不会被同计数的子串反向覆盖）。

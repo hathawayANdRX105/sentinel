@@ -1,8 +1,7 @@
-//! `reports-scorecard` 集成测试：与 Python 生成的基线逐字节对照。
+//! `reports-scorecard` 集成测试：与 golden 基线逐字节对照
+//! （`tests/fixtures/expected/reports-scorecard/{轮次}`）。
 //!
-//! 基线由 `PYTHONPATH=src python3 -m reports.scorecard`（同参数、同布局）生成，
-//! 再把输入侧临时根目录规范化为 `tests/fixtures` 后入库
-//! `tests/fixtures/expected/reports-scorecard/{轮次}`。
+//! 基线以同参数、同布局定稿，输入侧临时根目录规范化为 `tests/fixtures` 后入库。
 //! 报告内嵌输入全路径（`- source: ...` 与 stdout 行），故输出树拷入临时目录运行后，
 //! 按 `tests/fixtures` → 临时根 的标记替换再逐字节对照。
 
@@ -101,7 +100,7 @@ fn check_round(
     let (rc, printed) = run(&opts).unwrap();
     assert_eq!(rc, 0, "round {variant}: rc 应为 0");
 
-    // 期望树只含 Python 生成的 `stats-draft/.../scorecards` 文件（stdout.txt 单独比）；
+    // 期望树只含 `stats-draft/.../scorecards` 生成文件（stdout.txt 单独比）；
     // 生成侧 `<temp>` 下的 `draft-stats` 子树与期望文件集逐字节对照
     // （fixture 本身无既有 draft-stats 目录）。
     let want_files: Vec<String> = list_files(&expected_variant(variant))
@@ -122,7 +121,7 @@ fn check_round(
         assert_eq!(got, want, "round {variant}: 文件字节不一致: {relative}");
     }
 
-    // stdout：`println!` 逐行路径 + 尾换行（对齐 Python `print(path)`）。
+    // stdout：`println!` 逐行路径 + 尾换行。
     let stdout = expected_bytes(variant, "stdout.txt", temp_root);
     let got_stdout = printed
         .iter()
@@ -201,7 +200,7 @@ fn scorecard_empty_input_guardrail() {
     );
 }
 
-/// CLI 端到端轮：spawn `sentinel reports-scorecard`，stdout/退出码与 Python 基线一致；
+/// CLI 端到端轮：spawn `sentinel reports-scorecard`，stdout/退出码与 golden 基线一致；
 /// 空输入轮 stderr 文案与退出码亦对齐。
 #[test]
 fn scorecard_cli_round() {

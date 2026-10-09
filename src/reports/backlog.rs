@@ -1,8 +1,8 @@
-//! `reports/backlog.py` 移植：跨 Story 模板积压（`reports-backlog` 子命令）。
+//! 跨 Story 模板积压（`reports-backlog` 子命令）。
 //!
 //! 对每章跑草稿分析（缺省 `--sample-limit 6`），按 story 目录分组，
-//! 生成 `template-backlog/SUMMARY.md`（markdown 逐字对齐）与
-//! `template-backlog/CANDIDATES.json`（`json.dumps(indent=2) + "\n"`）。
+//! 生成 `template-backlog/SUMMARY.md`（markdown 逐行稳定）与
+//! `template-backlog/CANDIDATES.json`（2 空格缩进 + 末尾换行）。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -19,13 +19,13 @@ use crate::reports::scorecard;
 use crate::rules::build_template_bank;
 use crate::stats::draft::{chapter_sort_key, collect_chapter_files, stats_path_for, Ctr};
 
-/// `reports-backlog` 子命令参数（对齐 Python `parse_args`：位置 `paths` nargs+、
+/// `reports-backlog` 子命令参数（位置 `paths` nargs+、
 /// `--sample-limit` 缺省 6）。
 #[derive(Debug, Clone)]
 pub struct BacklogOptions {
     /// 草稿章文件或目录。
     pub paths: Vec<PathBuf>,
-    /// 每条规则最多记录的样本行数（Python 默认 6）。
+    /// 每条规则最多记录的样本行数（默认 6）。
     pub sample_limit: usize,
 }
 
@@ -92,7 +92,7 @@ fn infer_keep_candidate(name: &str, count: usize, reason: &str) -> Value {
     })
 }
 
-/// 对齐 Python `build_story_backlog`：markdown + 候选 JSON（键序逐一对齐）。
+/// `build_story_backlog`：markdown + 候选 JSON（键序固定）。
 pub fn build_story_backlog(
     story_dir: &Path,
     analyses: &[(PathBuf, &Analysis)],
@@ -229,7 +229,7 @@ pub fn build_story_backlog(
     Ok((lines.join("\n") + "\n", payload))
 }
 
-/// 对齐 Python `main`：收集章节 → 分析 → 按 story 写 backlog 两件套。
+/// 收集章节 → 分析 → 按 story 写 backlog 两件套。
 /// 返回（退出码, 应打印路径序列）。
 pub fn run(opts: &BacklogOptions) -> Result<(i32, Vec<PathBuf>)> {
     let files = collect_chapter_files(&opts.paths)?;
@@ -257,7 +257,7 @@ pub fn run(opts: &BacklogOptions) -> Result<(i32, Vec<PathBuf>)> {
         analyses.push((path.clone(), analysis));
     }
 
-    // 按父目录分组（首现序，对齐 Python `defaultdict`），再按 story 目录字典序处理。
+    // 按父目录分组（首现序），再按 story 目录字典序处理。
     let mut groups: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (index, (path, _)) in analyses.iter().enumerate() {
         let parent = path

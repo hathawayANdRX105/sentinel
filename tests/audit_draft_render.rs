@@ -1,16 +1,16 @@
 //! audit.draft text/markdown 渲染端到端对照测试。
 //!
-//! 基线由 Python 参考实现（worktree `src/`，PYTHONPATH=src）在 crate 根目录生成：
+//! 基线由参考实现在 crate 根目录生成：
 //! - `tests/fixtures/expected/draft-standalone.stdout.txt` / `.stdout.md`：
-//!   `python3 -m audit.draft tests/fixtures/draft/standalone.md --no-corpus-learning --format text|markdown`（stdout）
+//!   `audit-draft tests/fixtures/draft/standalone.md --no-corpus-learning --format text|markdown`（stdout）
 //! - `tests/fixtures/expected/draft-corpus.stdout.txt` / `.stdout.md`：
-//!   `python3 -m audit.draft tests/fixtures/draft/drafts --format text|markdown`（stdout，带语料学习）
+//!   `audit-draft tests/fixtures/draft/drafts --format text|markdown`（stdout，带语料学习）
 //! - `tests/fixtures/expected/draft-standalone.txt` / `.md`：
 //!   同上单文件输入 `-o <file>` 写盘（报告 + 末尾换行）
 //! - `tests/fixtures/expected/draft-corpus/0001-信号.{txt,md}`、
 //!   `0002-断桥.{txt,md}`：同上目录输入 `-o <dir>` 写盘（每稿一份，按 stem 命名）
 //!
-//! 基线更新必须重跑 Python 侧。
+//! 基线更新必须重跑参考实现。
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -36,17 +36,17 @@ fn run_bin(args: &[&str]) -> (i32, Vec<u8>) {
     (out.status.code().unwrap_or(-1), out.stdout)
 }
 
-/// stdout 轮次：字节对照 Python 基线。
+/// stdout 轮次：字节对照基线。
 fn expect_stdout(args: &[&str], expected: &str) {
     let (rc, stdout) = run_bin(args);
     let want =
         std::fs::read(fixture(expected)).unwrap_or_else(|e| panic!("读取 {expected} 失败: {e}"));
     assert_eq!(rc, 0, "stdout 轮次应退出 0");
-    assert_eq!(stdout, want, "{expected} 的 stdout 与 Python 不一致");
+    assert_eq!(stdout, want, "{expected} 的 stdout 与基线不一致");
 }
 
 #[test]
-fn draft_standalone_text_stdout_matches_python() {
+fn draft_standalone_text_stdout_golden() {
     expect_stdout(
         &[
             "audit-draft",
@@ -60,7 +60,7 @@ fn draft_standalone_text_stdout_matches_python() {
 }
 
 #[test]
-fn draft_standalone_markdown_stdout_matches_python() {
+fn draft_standalone_markdown_stdout_golden() {
     expect_stdout(
         &[
             "audit-draft",
@@ -74,7 +74,7 @@ fn draft_standalone_markdown_stdout_matches_python() {
 }
 
 #[test]
-fn draft_corpus_text_stdout_matches_python() {
+fn draft_corpus_text_stdout_golden() {
     expect_stdout(
         &[
             "audit-draft",
@@ -87,7 +87,7 @@ fn draft_corpus_text_stdout_matches_python() {
 }
 
 #[test]
-fn draft_corpus_markdown_stdout_matches_python() {
+fn draft_corpus_markdown_stdout_golden() {
     expect_stdout(
         &[
             "audit-draft",
@@ -100,7 +100,7 @@ fn draft_corpus_markdown_stdout_matches_python() {
 }
 
 #[test]
-fn draft_explicit_learn_from_stdout_matches_python() {
+fn draft_explicit_learn_from_stdout_golden() {
     expect_stdout(
         &[
             "audit-draft",
@@ -114,7 +114,7 @@ fn draft_explicit_learn_from_stdout_matches_python() {
     );
 }
 
-/// `--fail-on-warn` 退出码与 Python 一致（有 warn → 1；无 flag → 0）。
+/// `--fail-on-warn` 退出码（有 warn → 1；无 flag → 0）。
 #[test]
 fn draft_fail_on_warn_exit_code_text() {
     let (rc_warn, _) = run_bin(&[
@@ -146,9 +146,9 @@ fn run_write(inputs: Vec<PathBuf>, format: ReportFormat, no_corpus: bool, output
     draft::run(&opts).expect("draft run should succeed")
 }
 
-/// 单文件 `-o` 写盘：内容与 Python `-o` 输出逐字节一致。
+/// 单文件 `-o` 写盘：内容与基线逐字节一致。
 #[test]
-fn draft_single_file_write_matches_python() {
+fn draft_single_file_write_golden() {
     let tmp = tempfile::tempdir().unwrap();
     let out_txt = tmp.path().join("report.txt");
     let rc = run_write(
@@ -160,7 +160,7 @@ fn draft_single_file_write_matches_python() {
     assert_eq!(rc, 0);
     let got = std::fs::read(&out_txt).expect("text report file must exist");
     let want = std::fs::read(fixture("tests/fixtures/expected/draft-standalone.txt")).unwrap();
-    assert_eq!(got, want, "单文件 -o text 写盘与 Python 不一致");
+    assert_eq!(got, want, "单文件 -o text 写盘与基线不一致");
 
     let out_md = tmp.path().join("report.md");
     let rc = run_write(
@@ -172,12 +172,12 @@ fn draft_single_file_write_matches_python() {
     assert_eq!(rc, 0);
     let got = std::fs::read(&out_md).expect("markdown report file must exist");
     let want = std::fs::read(fixture("tests/fixtures/expected/draft-standalone.md")).unwrap();
-    assert_eq!(got, want, "单文件 -o markdown 写盘与 Python 不一致");
+    assert_eq!(got, want, "单文件 -o markdown 写盘与基线不一致");
 }
 
-/// 目录输入 `-o` 写盘：目录内按 stem 逐稿一份，内容与 Python 一致。
+/// 目录输入 `-o` 写盘：目录内按 stem 逐稿一份，内容与基线一致。
 #[test]
-fn draft_dir_write_matches_python() {
+fn draft_dir_write_golden() {
     let tmp = tempfile::tempdir().unwrap();
     for (format, ext) in [(ReportFormat::Text, "txt"), (ReportFormat::Markdown, "md")] {
         let out_dir = tmp.path().join(format!("out-{ext}"));
@@ -193,7 +193,7 @@ fn draft_dir_write_matches_python() {
                 .unwrap_or_else(|e| panic!("缺少 {name}.{ext}: {e}"));
             let want_path = format!("tests/fixtures/expected/draft-corpus/{name}.{ext}");
             let want = std::fs::read(fixture(want_path.as_str())).unwrap();
-            assert_eq!(got, want, "{name}.{ext} 目录写盘与 Python 不一致");
+            assert_eq!(got, want, "{name}.{ext} 目录写盘与基线不一致");
         }
     }
 }

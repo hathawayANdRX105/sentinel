@@ -1,9 +1,7 @@
-//! `reports-catalog` / `reports-backlog` / `reports-kit` 集成测试：与 Python 生成的
-//! 基线（`tests/fixtures/expected/reports-{catalog,backlog,kit}/*`）逐字节对照。
+//! `reports-catalog` / `reports-backlog` / `reports-kit` 集成测试：与 golden 基线
+//! （`tests/fixtures/expected/reports-{catalog,backlog,kit}/*`）逐字节对照。
 //!
-//! 基线由 `PYTHONPATH=src python3 -m reports.catalog/-backlog/-kit`（相对输入
-//! `tests/fixtures/catalog-cbk/...`、cwd 为 `rust/`）生成，生成树拷入
-//! `expected/reports-<mod>/<轮次>/catalog-cbk` 后入库。报告内嵌输入路径
+//! 基线以相对输入路径（`tests/fixtures/catalog-cbk/...`）定稿。报告内嵌输入路径
 //! （`- source:` 与 stdout 行、`CANDIDATES.json` 的 `story` 字段、review-kit 章节
 //! 路径），故测试侧把 `tests/fixtures/catalog-cbk` 拷到临时根目录运行，按
 //! `tests/fixtures` → 临时根的标记替换再逐字节对照。

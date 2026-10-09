@@ -1,19 +1,19 @@
-//! 规则扫描引擎行为测试：Python `round`/`finditer` 语义对齐与聚合排序。
+//! 规则扫描引擎行为测试：`round`/`finditer` 语义（银行家舍入、重叠命中计数）与聚合排序。
 
 use sentinel::rules::{
     build_rule_metrics, build_tracked_term_metrics, density, find_hits, round2, CompiledRule,
 };
 use std::sync::LazyLock;
 
-/// Python `round(x, 2)` 是二进制精确值上的半偶舍入，非 half-up。
+/// `round(x, 2)` 是二进制精确值上的半偶舍入，非 half-up。
 #[test]
-fn round2_uses_bankers_rounding_like_python() {
+fn round2_uses_bankers_rounding() {
     // 精确 .5 边界：向偶数舍入
     assert_eq!(round2(0.625), 0.62);
     assert_eq!(round2(0.875), 0.88);
     assert_eq!(round2(2.125), 2.12);
     assert_eq!(round2(2.375), 2.38);
-    // IEEE754 存储值决定的经典值（CPython 实测：round(0.635, 2) == 0.64）
+    // IEEE754 存储值决定的经典值：round2(0.635) == 0.64
     assert_eq!(round2(0.635), 0.64);
     assert_eq!(round2(2.675), 2.67);
     // 非边界常规舍入
@@ -22,10 +22,10 @@ fn round2_uses_bankers_rounding_like_python() {
     assert_eq!(round2(0.0), 0.0);
 }
 
-/// count=1、chars=16000 时 per_10k = 0.625，Python 侧 round 得 0.62；
-/// 若 Rust 用 half-up 会得到 0.63 —— 该用例锁死该边界。
+/// count=1、chars=16000 时 per_10k = 0.625，`round2` 得 0.62；
+/// 若用 half-up 会得到 0.63 —— 该用例锁死该边界。
 #[test]
-fn density_rounding_matches_python_at_boundary() {
+fn density_rounding_at_boundary() {
     let raw = density(1, 16_000);
     assert_eq!(raw, 0.625);
     assert_eq!(round2(raw), 0.62);
@@ -95,7 +95,7 @@ fn backreference_template_counts_repeated_words() {
         .expect("重叠词节奏模板应存在");
     let re = fancy_regex::Regex::new(&overlapped.pattern).expect("可编译");
     // 分支为 一AA / (XY)\4 即 ABAB 式；AA 单词本身不命中
-    // （CPython findall 实测：缓缓缓缓=1、一笑笑=1、微微=0）
+    // （重叠命中实测：缓缓缓缓=1、一笑笑=1、微微=0）
     let lines = vec!["缓缓缓缓地走，一笑笑。".to_string()];
     let (count, _) = find_hits(&re, &lines, 3);
     assert_eq!(count, 2, "缓缓缓缓 与 一笑笑 各命中一次");

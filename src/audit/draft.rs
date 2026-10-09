@@ -1,15 +1,15 @@
-//! `audit.draft` 完整分析移植：Python `analyze_text` 返回的**全部**顶层节。
+//! `audit.draft` 完整分析：`analyze_text` 返回**全部**顶层节。
 //!
 //! - 9 个规则指标节（tokens/patterns/phrases/modifiers/punctuation/
 //!   punctuation_combos/custom_templates/tracked_terms/tracked_term_categories）
 //!   复用 [`crate::rules`] 既有实现；
 //! - 其余结构分析（summary、warned、句长/对白/场面/语料/疲劳/提醒等）在本模块实现，
-//!   语义逐条对齐 `src/audit/draft.py`（含 `Counter.most_common` 平手首现序、
+//!   语义按固定契约（含平手按首现序、
 //!   `round(x, n)` 半偶舍入、码点计数、`min/max` 平手取首等语义坑）；
-//! - text/markdown 渲染函数已移植（对齐 Python `format_text_report` / `format_markdown_report` / `_render_report`）。
+//! - text/markdown 渲染：`format_text_report` / `format_markdown_report` / `_render_report` 输出逐字节稳定。
 //!
-//! JSON 键名与 Python 逐字一致；浮点值经 [`crate::rules::round2`]（2 位）
-//! 与 [`round4f`]（4 位）对齐 CPython `round`。
+//! JSON 键名遵循固定契约；浮点值经 [`crate::rules::round2`]（2 位）
+//! 与 [`round4f`]（4 位）舍入（对二进制精确值半偶舍入）。
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -31,7 +31,7 @@ use crate::rules::{
 use crate::text::{prose_char_count, quote_ratio, TextSplitter};
 
 // ---------------------------------------------------------------------------
-// 常量与共享正则（对齐 draft.py 模块级编译）
+// 常量与共享正则（模块级编译一次）
 
 /// 重叠词（AA/BB/AABB）正则，对齐 `collect_aa_bb_patterns` 内联正则。
 const AA_BB_RE: &str = r"(?:一([\u{4e00}-\u{9fff}])\1|([\u{4e00}-\u{9fff}])\2([\u{4e00}-\u{9fff}])\3|([\u{4e00}-\u{9fff}]{2})\4)";
@@ -54,7 +54,7 @@ const ALPHA_NUMERIC_RE: &str = r"[A-Za-z0-9]+";
 /// ngram 字母判定（`phrase.isascii() and phrase.isalpha()`）。
 const ASCII_ALPHA_RE: &str = r"[A-Za-z]+";
 
-/// Python 语义：`collections.Counter`（计数 + 首现序；`most_common` 平手按首现序）。
+/// 计数语义：计数 + 首现序；`most_common` 平手按首现序。
 #[derive(Debug, Clone, Default)]
 pub struct Counter {
     /// 按 key 首现序排列。
@@ -62,7 +62,7 @@ pub struct Counter {
     index: HashMap<String, usize>,
 }
 
-/// 计数器 JSON 对象：按首现序序列化为 JSON object，对齐 Python `dict(counter)` 形状。
+/// 计数器 JSON 对象：按首现序序列化为 JSON object。
 #[derive(Debug, Clone, Default)]
 pub struct CountMap(Vec<(String, usize)>);
 
@@ -109,7 +109,7 @@ impl Counter {
         }
     }
 
-    /// 新增 `n` 次计数（对齐 Python `counter[key] += n`）；返回该 key 的累计计数。
+    /// 新增 `n` 次计数；返回该 key 的累计计数。
     pub fn add_n(&mut self, key: &str, n: usize) -> usize {
         match self.index.get(key) {
             Some(&i) => {
@@ -161,9 +161,9 @@ impl Counter {
 }
 
 // ---------------------------------------------------------------------------
-// Python 语义辅助
+// 数值/码点语义辅助
 
-/// `round(x, n)`：CPython 对二进制精确值做半偶舍入（对齐既有 [`round2`]，推广到 n 位）。
+/// `round(x, n)`：对二进制精确值做半偶舍入（对齐既有 [`round2`]，推广到 n 位）。
 #[must_use]
 pub fn round_nd(x: f64, n: u32) -> f64 {
     if x == 0.0 {
@@ -206,7 +206,7 @@ pub fn round4f(x: f64) -> f64 {
     round_nd(x, 4)
 }
 
-/// `round(x)`（0 位）：CPython 半偶取整。
+/// `round(x)`（0 位）：半偶取整。
 #[must_use]
 pub fn bankers_round_int(x: f64) -> i64 {
     if x == 0.0 {
@@ -241,10 +241,10 @@ pub fn bankers_round_int(x: f64) -> i64 {
     }
 }
 
-/// Python `str(float)` 的 f-string 语义：shortest roundtrip，整数值带 `.0`
-/// （`str(12.0)` == `"12.0"`，Rust `{}` 是 `"12"`）。
+/// 浮点数值展示：shortest roundtrip，整数值带 `.0`
+/// （12.0 显示为 "12.0"；Rust 默认 `{}` 格式化为 "12"）。
 #[must_use]
-pub fn py_float_str(v: f64) -> String {
+pub fn float_repr(v: f64) -> String {
     if v.is_finite() && v.fract() == 0.0 {
         format!("{v:.1}")
     } else {
@@ -252,7 +252,7 @@ pub fn py_float_str(v: f64) -> String {
     }
 }
 
-/// 末尾 n 个码点切片（Python `text[-n:]`）。
+/// 取字符串末尾 n 个码点。
 fn tail_chars(text: &str, n: usize) -> &str {
     let total = text.chars().count();
     if total <= n {
@@ -267,17 +267,17 @@ fn tail_chars(text: &str, n: usize) -> &str {
     &text[start..]
 }
 
-/// 码点长度（Python `len(str)`）。
+/// 字符串码点数。
 fn code_len(s: &str) -> usize {
     s.chars().count()
 }
 
-/// 码点前缀（Python `s[:n]`）。
+/// 取字符串前 n 个码点。
 fn prefix_chars(s: &str, n: usize) -> String {
     s.chars().take(n).collect()
 }
 
-/// 首尾剥离字符集（Python `s.strip(chars)` / `lstrip(chars)`）。
+/// 首尾/首部剥离指定字符集。
 fn strip_chars<'a>(s: &'a str, set: &str) -> &'a str {
     s.trim_matches(|c: char| set.chars().any(|x| x == c))
 }
@@ -285,13 +285,13 @@ fn lstrip_chars<'a>(s: &'a str, set: &str) -> &'a str {
     s.trim_start_matches(|c: char| set.chars().any(|x| x == c))
 }
 
-/// `LEADING_PUNCT` 词表常量（对齐 draft.py）。
+/// `LEADING_PUNCT` 词表常量。
 const LEADING_PUNCT: &str = "“”\"'【】《》〈〉（）()[]「」『』，,：:；;、 ";
 
 // ---------------------------------------------------------------------------
 // 分析上下文（编译一次，逐篇复用）
 
-/// 一次分析会话所需的配置与编译正则（对应 Python 模块级常量）。
+/// 一次分析会话所需的配置与编译正则（编译一次，逐篇复用）。
 pub struct DraftContext {
     rules: ReviewRules,
     splitter: TextSplitter,
@@ -457,7 +457,7 @@ impl DraftContext {
 }
 
 // ---------------------------------------------------------------------------
-// JSON 输出结构（字段名与 Python 键逐字一致）
+// JSON 输出结构（字段名遵循 JSON 契约）
 
 /// 短句角色统计行。
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -827,7 +827,7 @@ pub struct TemplateCandidate {
     pub sample: String,
 }
 
-/// `hard_flags` 行（`per_10k` 可为 null，对齐 Python `None`）。
+/// `hard_flags` 行（`per_10k` 可为 null）。
 #[derive(Debug, Clone, Serialize)]
 pub struct HardFlag {
     pub section: String,
@@ -861,7 +861,7 @@ pub struct ReviewReminder {
     pub evidence: Vec<String>,
 }
 
-/// 语料学习得到的模式（对应 Python `LearnedPattern`）。
+/// 语料学习得到的模式。
 #[derive(Debug, Clone, Serialize)]
 pub struct LearnedPattern {
     pub category: String,
@@ -912,7 +912,7 @@ pub struct CorpusProfile {
     pub sentence_length_baseline: Option<SentenceLengthBaseline>,
 }
 
-/// JSON 里 `sentence_length_baseline` 的两种形态（对齐 Python）：
+/// JSON 里 `sentence_length_baseline` 的两种形态：
 /// 未启用语料学习 → `{}`（空对象）；语料存在 → 6 键基线对象。
 #[derive(Debug, Clone)]
 pub enum BaselineJson {
@@ -1021,7 +1021,7 @@ pub struct Summary {
     pub warn_sections: usize,
 }
 
-/// Python `analyze_text` 返回的完整 analysis 结构（键序与 Python 一致）。
+/// 完整 analysis 结构（顶层键序固定）。
 #[derive(Debug, Clone, Serialize)]
 pub struct Analysis {
     pub source: String,
@@ -1109,8 +1109,8 @@ fn walk_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// 去掉路径中的 `.`（CurrentDir）分量，对齐 Python `pathlib` 的归一化
-/// （`Path("./a")` → `a`；`Path(".")` 的 rglob 结果不带 `./` 前缀）。
+/// 去掉路径中的 `.`（CurrentDir）分量（路径归一化）
+/// （如 "./a" → "a"；相对路径不带 "./" 前缀）。
 fn normalize_current_dir(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
@@ -1126,9 +1126,9 @@ fn normalize_current_dir(path: &Path) -> PathBuf {
     }
 }
 
-/// 展开输入路径为文件列表（对齐 `iter_target_files`：目录递归收 `.md/.txt`
-/// 且排除生成物/模板，显式文件原样保留，结果按路径排序；路径按 Python
-/// `pathlib` 语义去掉 `.` 分量）。
+/// 展开输入路径为文件列表：目录递归收 `.md/.txt`
+/// 且排除生成物/模板，显式文件原样保留，结果按路径排序；
+/// 路径归一化去掉 `.` 分量。
 pub fn iter_target_files(paths: &[PathBuf]) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
     for raw in paths {
@@ -2506,13 +2506,13 @@ fn collect_aa_bb_patterns(
     findings
 }
 
-/// `QUOTE_LINE`（`^\s*[“"【].*`）：对白行判定（对齐 Python `QUOTE_LINE.match`）。
+/// `QUOTE_LINE`（`^\s*[“"【].*`）：对白行判定。
 fn is_quote_line(line: &str) -> bool {
     let trimmed = line.trim_start();
     trimmed.starts_with('\u{201c}') || trimmed.starts_with('"') || trimmed.starts_with('\u{3010}')
 }
 
-/// 逐段对白判定（Python 检测函数共用：全行对白或单行引号段）。
+/// 逐段对白判定（全行对白或单行引号段）。
 fn paragraph_is_dialogue(paragraph: &str) -> Option<String> {
     let stripped = paragraph.trim();
     if stripped.is_empty() {
@@ -3469,8 +3469,8 @@ pub fn build_character_voice_profile(
                     left.speaker,
                     right.speaker,
                     left.dominant_emotion,
-                    py_float_str(left.avg_chars),
-                    py_float_str(right.avg_chars),
+                    float_repr(left.avg_chars),
+                    float_repr(right.avg_chars),
                 ));
             }
         }
@@ -3522,8 +3522,7 @@ pub fn build_tone_profile(
         if active.is_empty() {
             continue;
         }
-        // Python `min(active, key=lambda item: (-item[1], item[0]))`：
-        // 计数最高，平手按 label 升序取首。
+        // 选最优条目：计数最高，平手按 label 升序取首。
         let best = active
             .iter()
             .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
@@ -3767,7 +3766,7 @@ fn metric_evidence(count: usize, per_10k: f64, samples: &[Hit]) -> String {
     if let Some(sample) = samples.first() {
         format!("L{} {}", sample.line_no, sample.snippet)
     } else {
-        format!("count={count}, per_10k={}", py_float_str(per_10k))
+        format!("count={count}, per_10k={}", float_repr(per_10k))
     }
 }
 
@@ -3973,7 +3972,7 @@ pub fn build_style_fatigue(a: &Analysis) -> Vec<FatigueRow> {
                 "short={}, very_short={}, ratio={}, runs={}",
                 sl.short_count,
                 sl.very_short_count,
-                py_float_str(sl.short_ratio),
+                float_repr(sl.short_ratio),
                 sl.short_runs.len()
             );
             if let Some(first) = sl.short_runs.first() {
@@ -4243,7 +4242,7 @@ pub fn build_style_fatigue(a: &Analysis) -> Vec<FatigueRow> {
         vec![format!(
             "dominant={} ratio={}；{role_summary}",
             sm.dominant_role,
-            py_float_str(sm.dominance_ratio)
+            float_repr(sm.dominance_ratio)
         )],
     );
 
@@ -4266,7 +4265,7 @@ pub fn build_style_fatigue(a: &Analysis) -> Vec<FatigueRow> {
         vec![format!(
             "dominant={} ratio={} shift={}；{emotion_summary}",
             de.dominant_emotion,
-            py_float_str(de.dominant_ratio),
+            float_repr(de.dominant_ratio),
             de.shift_count
         )],
     );
@@ -4278,9 +4277,9 @@ pub fn build_style_fatigue(a: &Analysis) -> Vec<FatigueRow> {
             "{} line={} avg={} q={} short={} emotion={}",
             item.speaker,
             item.lines,
-            py_float_str(item.avg_chars),
-            py_float_str(item.question_ratio),
-            py_float_str(item.short_ratio),
+            float_repr(item.avg_chars),
+            float_repr(item.question_ratio),
+            float_repr(item.short_ratio),
             item.dominant_emotion
         ));
     }
@@ -4307,7 +4306,7 @@ pub fn build_style_fatigue(a: &Analysis) -> Vec<FatigueRow> {
             bp.action_hits,
             bp.result_hits,
             bp.damage_hits,
-            py_float_str(bp.result_ratio)
+            float_repr(bp.result_ratio)
         )],
     );
 
@@ -4554,7 +4553,7 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
             "short={}, very_short={}, ratio={}, runs={}",
             sl.short_count,
             sl.very_short_count,
-            py_float_str(sl.short_ratio),
+            float_repr(sl.short_ratio),
             sl.short_runs.len()
         )];
         if let Some(first) = sl.short_runs.first() {
@@ -4817,7 +4816,7 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
             vec![format!(
                 "dominant={} ratio={}；{role_summary}",
                 sm.dominant_role,
-                py_float_str(sm.dominance_ratio)
+                float_repr(sm.dominance_ratio)
             )],
         );
     }
@@ -4843,7 +4842,7 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
             vec![format!(
                 "dominant={} ratio={} shift={}；{emotion_summary}",
                 de.dominant_emotion,
-                py_float_str(de.dominant_ratio),
+                float_repr(de.dominant_ratio),
                 de.shift_count
             )],
         );
@@ -4853,18 +4852,18 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
     if cv.warn {
         let mut evidence = vec![format!(
             "coverage={} dominant={} ratio={}",
-            py_float_str(cv.coverage_ratio),
+            float_repr(cv.coverage_ratio),
             cv.dominant_speaker,
-            py_float_str(cv.dominant_ratio)
+            float_repr(cv.dominant_ratio)
         )];
         for item in cv.speakers.iter().take(3) {
             evidence.push(format!(
                 "{} line={} avg={} q={} short={} emotion={}",
                 item.speaker,
                 item.lines,
-                py_float_str(item.avg_chars),
-                py_float_str(item.question_ratio),
-                py_float_str(item.short_ratio),
+                float_repr(item.avg_chars),
+                float_repr(item.question_ratio),
+                float_repr(item.short_ratio),
                 item.dominant_emotion
             ));
         }
@@ -4895,7 +4894,7 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
                 bp.action_hits,
                 bp.result_hits,
                 bp.damage_hits,
-                py_float_str(bp.result_ratio)
+                float_repr(bp.result_ratio)
             )],
         );
     }
@@ -4987,20 +4986,20 @@ pub fn build_review_reminders(a: &Analysis) -> Vec<ReviewReminder> {
 }
 
 // ---------------------------------------------------------------------------
-// analyze_text / analyze_path / CLI（对齐 Python analyze_text / analyze_path / main）
+// analyze_text / analyze_path / CLI
 
 /// 报告输出格式（对齐 `--format`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReportFormat {
-    /// 纯文本报告（对齐 Python `format_text_report`）。
+    /// 纯文本报告。
     Text,
-    /// JSON 报告（与 Python `--format json` 完整对齐）。
+    /// JSON 报告。
     Json,
-    /// Markdown 报告（对齐 Python `format_markdown_report`）。
+    /// Markdown 报告。
     Markdown,
 }
 
-/// 语料画像 JSON 节（对齐 Python analysis["corpus_profile"] 组装）。
+/// 语料画像 JSON 节。
 fn corpus_profile_json(corpus: Option<&CorpusProfile>) -> CorpusProfileJson {
     let to_json = |item: &LearnedPattern| LearnedTermJson {
         name: item.name.clone(),
@@ -5038,7 +5037,7 @@ fn corpus_profile_json(corpus: Option<&CorpusProfile>) -> CorpusProfileJson {
     }
 }
 
-/// 指标证据（对齐 Python `metric["samples"][0]["snippet"] if metric["samples"] else ""`）。
+/// 指标证据（首条样本 snippet；无样本时为空串）。
 fn first_snippet(samples: &[Hit]) -> String {
     samples
         .first()
@@ -5046,7 +5045,7 @@ fn first_snippet(samples: &[Hit]) -> String {
         .unwrap_or_default()
 }
 
-/// Python `analyze_text` 的完整移植：装配全部顶层节并计算 warned/warn_sections。
+/// 装配全部顶层节并计算 warned/warn_sections。
 pub fn analyze_text(
     ctx: &DraftContext,
     text: &str,
@@ -5264,7 +5263,7 @@ pub fn analyze_text(
         warn: ending_warn,
     };
 
-    // template_candidates（顺序与 Python 逐条一致）。
+    // template_candidates（顺序按固定契约）。
     let mut template_candidates: Vec<TemplateCandidate> = Vec::new();
     for m in &tracked_term_metrics {
         if m.warn {
@@ -5571,7 +5570,7 @@ pub fn analyze_text(
         });
     }
 
-    // hard_flags（顺序与 Python 一致：先 9 指标节，再其余固定行，最后整体排序）。
+    // hard_flags（顺序固定：先 9 指标节，再其余固定行，最后整体排序）。
     let mut hard_flags: Vec<HardFlag> = Vec::new();
     let extend_flags = |section: &str, metrics: &[RegexMetric], flags: &mut Vec<HardFlag>| {
         for m in metrics {
@@ -5823,7 +5822,7 @@ pub fn analyze_text(
             format!(
                 "粗分块里 `{}` 占比 `{}`，场面功能切换偏少。",
                 scene_map.dominant_role,
-                py_float_str(scene_map.dominance_ratio)
+                float_repr(scene_map.dominance_ratio)
             ),
             first_block
                 .map(|b| {
@@ -5851,7 +5850,7 @@ pub fn analyze_text(
             format!(
                 "dominant={} ratio={} shift={}",
                 dialogue_emotions.dominant_emotion,
-                py_float_str(dialogue_emotions.dominant_ratio),
+                float_repr(dialogue_emotions.dominant_ratio),
                 dialogue_emotions.shift_count
             ),
             first_sample.map(|s| s.text.clone()).unwrap_or_default(),
@@ -5866,7 +5865,7 @@ pub fn analyze_text(
             format!(
                 "dominant={} coverage={}，多名角色对白画像过近。",
                 character_voice.dominant_speaker,
-                py_float_str(character_voice.coverage_ratio)
+                float_repr(character_voice.coverage_ratio)
             ),
             character_voice
                 .homogenized_pairs
@@ -5886,7 +5885,7 @@ pub fn analyze_text(
             battle_profile.sequence_count,
             format!(
                 "result_ratio={}，动作句已有堆积，但结果/伤害反馈不足。",
-                py_float_str(battle_profile.result_ratio)
+                float_repr(battle_profile.result_ratio)
             ),
             first_sample
                 .map(|s| {
@@ -6126,7 +6125,7 @@ pub fn analyze_text(
     Ok(analysis)
 }
 
-/// 对齐 Python `analyze_path`：读文件文本后走 `analyze_text`（source 为路径字符串）。
+/// 读文件文本后走 `analyze_text`（source 为路径字符串）。
 pub fn analyze_path(
     ctx: &DraftContext,
     path: &Path,
@@ -6148,7 +6147,7 @@ pub fn analyze_path(
     )
 }
 // ---------------------------------------------------------------------------
-// 文本报告（对齐 Python `format_text_report` / `_format_metric_block`）
+// 文本报告
 
 /// 文本指标行（4 类指标的渲染字段形状一致）。
 struct TextMetric<'a> {
@@ -6181,7 +6180,7 @@ fn text_metric<'a>(
     }
 }
 
-/// 渲染一个规则指标小节（对齐 Python `_format_metric_block`）。
+/// 渲染一个规则指标小节。
 fn metric_block_lines(title: &str, metrics: &[TextMetric<'_>], sample_limit: usize) -> Vec<String> {
     let mut out = vec![format!("{title}:")];
     for metric in metrics {
@@ -6266,7 +6265,7 @@ fn learned_text_rows(list: &[LearnedFilterMetric]) -> Vec<TextMetric<'_>> {
         .collect()
 }
 
-/// Python `format_text_report` 的完整移植：把完整 analysis 渲染成文本报告。
+/// 把完整 analysis 渲染成文本报告。
 #[must_use]
 pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
     let s = &a.summary;
@@ -6275,14 +6274,14 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
         format!("chars={}", s.chars),
         format!("sentences={}", s.sentences),
         format!("paragraphs={}", s.paragraphs),
-        format!("avg_sentence_chars={}", py_float_str(s.avg_sentence_chars)),
+        format!("avg_sentence_chars={}", float_repr(s.avg_sentence_chars)),
         format!("short_sentences={}", s.short_sentences),
         format!("very_short_sentences={}", s.very_short_sentences),
         format!(
             "short_sentence_ratio={}",
-            py_float_str(s.short_sentence_ratio)
+            float_repr(s.short_sentence_ratio)
         ),
-        format!("quote_ratio={}", py_float_str(s.quote_ratio)),
+        format!("quote_ratio={}", float_repr(s.quote_ratio)),
         format!("warn_sections={}", s.warn_sections),
     ];
 
@@ -6292,7 +6291,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
     for item in a.hard_flags.iter().take(sample_limit * 8) {
         let mut line = format!("    [{}] {}: count={}", item.section, item.name, item.count);
         if let Some(per_10k) = item.per_10k {
-            line.push_str(&format!(", per_10k={}", py_float_str(per_10k)));
+            line.push_str(&format!(", per_10k={}", float_repr(per_10k)));
         }
         line.push_str(&format!("  # {}", item.note));
         if !item.sample.is_empty() {
@@ -6387,7 +6386,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
         }
     }
 
-    // 9 个规则指标小节（顺序与 Python 一致）
+    // 9 个规则指标小节（顺序固定）
     output.extend(metric_block_lines(
         "tokens",
         &regex_text_rows(&a.tokens),
@@ -6450,8 +6449,8 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             baseline.p10_chars,
             baseline.p25_chars,
             baseline.median_chars,
-            py_float_str(baseline.avg_chars),
-            py_float_str(baseline.short_ratio)
+            float_repr(baseline.avg_chars),
+            float_repr(baseline.short_ratio)
         ));
     }
     for item in p.learned_sentence_leads.iter().take(sample_limit) {
@@ -6459,7 +6458,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             "    learned_lead {}: count={}, corpus_per_10k={}",
             item.phrase,
             item.count,
-            py_float_str(item.corpus_per_10k)
+            float_repr(item.corpus_per_10k)
         ));
     }
     for item in p.learned_aa_bb_shapes.iter().take(sample_limit) {
@@ -6490,7 +6489,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
                 "      - {}: count={}, per_10k={}, warn={}",
                 term.term,
                 term.count,
-                py_float_str(term.per_10k),
+                float_repr(term.per_10k),
                 if term.warn { "Y" } else { "N" }
             ));
         }
@@ -6669,14 +6668,14 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
         sl.p10_chars,
         sl.p25_chars,
         sl.median_chars,
-        py_float_str(sl.avg_chars),
+        float_repr(sl.avg_chars),
         sl.max_chars
     ));
     output.push(format!(
         "    short_count={}, very_short_count={}, short_ratio={}, short_runs={}",
         sl.short_count,
         sl.very_short_count,
-        py_float_str(sl.short_ratio),
+        float_repr(sl.short_ratio),
         sl.short_runs.len()
     ));
     for item in sl.short_sentences.iter().take(sample_limit * 4) {
@@ -6693,7 +6692,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             item.end_index,
             item.start_line,
             item.end_line,
-            py_float_str(item.avg_chars),
+            float_repr(item.avg_chars),
             item.sample.join(" | ")
         ));
         if !roles.is_empty() {
@@ -6756,7 +6755,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             "    paragraph {}-{}: avg_len={} | {}",
             item.start_paragraph,
             item.end_paragraph,
-            py_float_str(item.avg_len),
+            float_repr(item.avg_len),
             item.sample.join(" | ")
         ));
     }
@@ -6793,7 +6792,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             "    paragraph {}-{}: avg_len={} | {}",
             item.start_paragraph,
             item.end_paragraph,
-            py_float_str(item.avg_len),
+            float_repr(item.avg_len),
             item.sample.join(" | ")
         ));
     }
@@ -6837,7 +6836,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
     }
     output.push(format!(
         "  [INFO] quote_paragraph_ratio={}",
-        py_float_str(d.quote_paragraph_ratio)
+        float_repr(d.quote_paragraph_ratio)
     ));
     output.push(format!(
         "  [INFO] dense_quote_run_max={}",
@@ -6864,7 +6863,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             "    {}: count={}, per_10k={}",
             item.mark,
             item.count,
-            py_float_str(item.per_10k)
+            float_repr(item.per_10k)
         ));
     }
 
@@ -6940,7 +6939,7 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
     output.join("\n")
 }
 
-/// Python `Path(str(source)).stem`：markdown 报告标题与多文件输出命名。
+/// source 文件名 stem：markdown 报告标题与多文件输出命名。
 fn path_stem(source: &str) -> String {
     Path::new(source)
         .file_stem()
@@ -6948,7 +6947,7 @@ fn path_stem(source: &str) -> String {
         .unwrap_or_default()
 }
 
-/// 报告分发（对齐 Python `_render_report`）：markdown 标题取 source 的 stem
+/// 报告分发：markdown 标题取 source 的 stem
 /// （空时回退 source），text 走 sample_limit；JSON 由调用方直接序列化。
 #[must_use]
 pub fn render_report(a: &Analysis, format: ReportFormat, sample_limit: usize) -> String {
@@ -6963,7 +6962,7 @@ pub fn render_report(a: &Analysis, format: ReportFormat, sample_limit: usize) ->
     format_text_report(a, sample_limit)
 }
 // ---------------------------------------------------------------------------
-// Markdown 报告（对齐 Python `format_markdown_report` / `_markdown_table_cell`）
+// Markdown 报告
 
 /// Markdown 表格单元格净化：换行 → 空格，`|` → `\|`（对齐 `_markdown_table_cell`）。
 fn markdown_table_cell(value: &str) -> String {
@@ -6980,7 +6979,7 @@ struct MdMetric<'a> {
     samples: &'a [Hit],
 }
 
-/// 渲染一条规则指标小节（对齐 Python `add_metric_section`）。
+/// 渲染一条规则指标小节。
 fn metric_section_lines(header: &str, metrics: &[MdMetric<'_>]) -> Vec<String> {
     let mut lines = vec![format!("## {header}")];
     if metrics.is_empty() {
@@ -6994,8 +6993,8 @@ fn metric_section_lines(header: &str, metrics: &[MdMetric<'_>]) -> Vec<String> {
             "- `{status}` `{}` count=`{}` per_10k=`{}` max=`{}`",
             metric.name,
             metric.count,
-            py_float_str(metric.per_10k),
-            py_float_str(metric.max_per_10k)
+            float_repr(metric.per_10k),
+            float_repr(metric.max_per_10k)
         ));
         if let Some(sample) = metric.samples.first() {
             lines.push(format!("  样例：`L{}` {}", sample.line_no, sample.snippet));
@@ -7020,8 +7019,8 @@ fn regex_metric_rows(items: &[crate::rules::RegexMetric]) -> Vec<MdMetric<'_>> {
         .collect()
 }
 
-/// 对齐 Python `format_markdown_report`：把完整 analysis 渲染成 Markdown 报告。
-/// `title` 为 None 时回退 `analysis.source`（对齐 `title or analysis["source"]`）。
+/// 把完整 analysis 渲染成 Markdown 报告。
+/// `title` 为 None 时回退 `analysis.source`。
 #[must_use]
 pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
     let s = &a.summary;
@@ -7050,15 +7049,15 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
     lines.push(format!("- 段落数：`{}`", s.paragraphs));
     lines.push(format!(
         "- 句均字数：`{}`",
-        py_float_str(s.avg_sentence_chars)
+        float_repr(s.avg_sentence_chars)
     ));
     lines.push(format!("- 短句数：`{}`", s.short_sentences));
     lines.push(format!("- 极短句数：`{}`", s.very_short_sentences));
     lines.push(format!(
         "- 短句占比：`{}`",
-        py_float_str(s.short_sentence_ratio)
+        float_repr(s.short_sentence_ratio)
     ));
-    lines.push(format!("- 引号占比：`{}`", py_float_str(s.quote_ratio)));
+    lines.push(format!("- 引号占比：`{}`", float_repr(s.quote_ratio)));
     lines.push(format!("- 警告分区数：`{}`", s.warn_sections));
     lines.push(format!(
         "- 总体状态：`{}`",
@@ -7195,7 +7194,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
                 item.section, item.name, item.count, item.note
             );
             if let Some(per_10k) = item.per_10k {
-                line.push_str(&format!("；per_10k=`{}`", py_float_str(per_10k)));
+                line.push_str(&format!("；per_10k=`{}`", float_repr(per_10k)));
             }
             if !item.sample.is_empty() {
                 line.push_str(&format!("；样例：{}", item.sample));
@@ -7285,8 +7284,8 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
                 baseline.p10_chars,
                 baseline.p25_chars,
                 baseline.median_chars,
-                py_float_str(baseline.avg_chars),
-                py_float_str(baseline.short_ratio)
+                float_repr(baseline.avg_chars),
+                float_repr(baseline.short_ratio)
             ));
         }
         if !p.learned_sentence_leads.is_empty() {
@@ -7331,7 +7330,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
                     "  - `{}` x{} per_10k=`{}` warn=`{}`",
                     term.term,
                     term.count,
-                    py_float_str(term.per_10k),
+                    float_repr(term.per_10k),
                     if term.warn { "Y" } else { "N" }
                 ));
             }
@@ -7526,14 +7525,14 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
         sl.p10_chars,
         sl.p25_chars,
         sl.median_chars,
-        py_float_str(sl.avg_chars),
+        float_repr(sl.avg_chars),
         sl.max_chars
     ));
     lines.push(format!(
         "- 短句：`{}`；极短句：`{}`；短句占比：`{}`；短句连发：`{}`",
         sl.short_count,
         sl.very_short_count,
-        py_float_str(sl.short_ratio),
+        float_repr(sl.short_ratio),
         sl.short_runs.len()
     ));
     if !sl.short_sentences.is_empty() {
@@ -7554,7 +7553,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
                 item.end_index,
                 item.start_line,
                 item.end_line,
-                py_float_str(item.avg_chars),
+                float_repr(item.avg_chars),
                 item.sample.join(" | ")
             ));
             if !roles.is_empty() {
@@ -7598,7 +7597,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
             "- 段落 `{}-{}` 平均句长=`{}`: {}",
             item.start_paragraph,
             item.end_paragraph,
-            py_float_str(item.avg_len),
+            float_repr(item.avg_len),
             item.sample.join(" | ")
         ));
     }
@@ -7617,7 +7616,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
             "- 段落 `{}-{}` 平均句长=`{}`: {}",
             item.start_paragraph,
             item.end_paragraph,
-            py_float_str(item.avg_len),
+            float_repr(item.avg_len),
             item.sample.join(" | ")
         ));
     }
@@ -7651,7 +7650,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
     }
     lines.push(format!(
         "- 对话段占比：`{}`",
-        py_float_str(d.quote_paragraph_ratio)
+        float_repr(d.quote_paragraph_ratio)
     ));
     lines.push(format!("- 最长连续对白块：`{}`", d.dense_quote_run_max));
     lines.push(format!("- 超长对白块数：`{}`", d.dense_quote_run_count));
@@ -7667,7 +7666,7 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
                 "- `{}` x{} per_10k=`{}`",
                 item.mark,
                 item.count,
-                py_float_str(item.per_10k)
+                float_repr(item.per_10k)
             ));
         }
     }
@@ -7739,18 +7738,18 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
     lines.join("\n")
 }
 
-/// `run` 的 CLI 参数（对齐 Python `main` 的 argparse 项）。
+/// `run` 的 CLI 参数。
 #[derive(Debug, Clone)]
 pub struct RunOptions {
     /// 位置参数：草稿文件或目录。
     pub positional: Vec<PathBuf>,
     /// `-i/--input`：输入文件或目录（可重复）。
     pub inputs: Vec<PathBuf>,
-    /// 每条规则最多记录的样本行数（Python 默认 3）。
+    /// 每条规则最多记录的样本行数（默认 3）。
     pub sample_limit: usize,
     /// `--fail-on-warn`：有警告时退出码 1。
     pub fail_on_warn: bool,
-    /// `--format`：报告格式（json/text/markdown 均对齐 Python）。
+    /// `--format`：报告格式（json/text/markdown）。
     pub format: ReportFormat,
     /// `-o/--output`：输出文件。
     pub output: Option<PathBuf>,
@@ -7760,7 +7759,7 @@ pub struct RunOptions {
     pub no_corpus_learning: bool,
 }
 
-/// 对齐 Python `main`：多输入收集、语料学习开关、报告写出与退出码。
+/// 多输入收集、语料学习开关、报告写出与退出码。
 pub fn run(opts: &RunOptions) -> Result<i32> {
     let raw_inputs = resolve_inputs(&opts.positional, &opts.inputs)?;
     let files = iter_target_files(&raw_inputs);

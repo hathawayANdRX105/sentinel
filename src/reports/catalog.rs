@@ -1,4 +1,4 @@
-//! `reports/catalog.py` 移植：工作区级模板/词项候选目录（`reports-catalog` 子命令）。
+//! 工作区级模板/词项候选目录（`reports-catalog` 子命令）。
 //!
 //! 输入为 novel 目录（读已有 `draft-stats/*/template-backlog/CANDIDATES.json`）
 //! 或草稿章节文件（现跑分析并按 story 写 backlog 两件套），聚合后生成
@@ -18,7 +18,7 @@ use crate::reports::backlog;
 use crate::rules::build_template_bank;
 use crate::stats::draft::{collect_chapter_files, Ctr};
 
-/// `reports-catalog` 子命令参数（对齐 Python `parse_args`：仅位置 `paths` nargs+）。
+/// `reports-catalog` 子命令参数（仅位置 `paths` nargs+）。
 #[derive(Debug, Clone)]
 pub struct CatalogOptions {
     /// novel 目录、draft 目录或草稿章节文件。
@@ -58,7 +58,7 @@ fn novel_dir_for_story_dir(story_dir: &Path) -> Option<PathBuf> {
     None
 }
 
-/// 对齐 Python `build_story_payloads`：逐章分析（sample_limit=6）→ 按 story 写
+/// `build_story_payloads`：逐章分析（sample_limit=6）→ 按 story 写
 /// backlog 两件套 → 收集 CANDIDATES 载荷。novel 目录无法解析时报 Err（调用方
 /// 打印 `Failed to resolve novel directory from draft paths.` 并退 1）。
 fn build_story_payloads(
@@ -91,7 +91,7 @@ fn build_story_payloads(
 
     // novel_dir 无法解析时返回 None（由 resolve_payloads 打印固定文案并退 1）。
 
-    // 按 story 目录分组（首现序），再按 story 目录字典序处理（对齐 Python sorted）。
+    // 按 story 目录分组（首现序），再按 story 目录字典序处理。
     let mut groups: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (index, (path, _)) in analyses.iter().enumerate() {
         let parent = path
@@ -106,7 +106,7 @@ fn build_story_payloads(
     }
     groups.sort_by(|a, b| a.0.cmp(&b.0));
     if novel_dir.is_none() {
-        // 对齐 Python：`SystemExit("Failed to resolve novel directory from draft paths.")` 发生在
+        // 错误发生在
         // 写任何 backlog 文件之前。
         return Ok((None, Vec::new()));
     }
@@ -127,8 +127,8 @@ fn build_story_payloads(
     Ok((novel_dir, payloads))
 }
 
-/// 对齐 Python `load_story_payloads_from_stats`：按排序读全部
-/// `draft-stats/arc*/story*/template-backlog/CANDIDATES.json`（仅 dict 有效）。
+/// `load_story_payloads_from_stats`：按排序读全部
+/// `draft-stats/arc*/story*/template-backlog/CANDIDATES.json`（仅 JSON object 有效）。
 fn load_story_payloads_from_stats(novel_dir: &Path) -> Vec<Value> {
     let pattern = format!(
         "{}/draft-stats/arc*/story*/template-backlog/CANDIDATES.json",
@@ -155,7 +155,7 @@ fn load_story_payloads_from_stats(novel_dir: &Path) -> Vec<Value> {
     payloads
 }
 
-/// 对齐 Python `load_bank_names(key)`：`name` → 模板库名集合；`term` → 词库名集合。
+/// `load_bank_names`：`name` → 模板库名集合；`term` → 词库名集合。
 fn load_bank_names(draft: &crate::config::DraftConfig, key: &str) -> HashSet<String> {
     if key == "name" {
         draft
@@ -174,7 +174,7 @@ fn load_bank_names(draft: &crate::config::DraftConfig, key: &str) -> HashSet<Str
     }
 }
 
-/// 对齐 Python `load_builtin_rule_template_names`（六组规则的 label+name 并集）。
+/// `load_builtin_rule_template_names`（六组规则的 label+name 并集）。
 fn load_builtin_rule_template_names(draft: &crate::config::DraftConfig) -> HashSet<String> {
     let groups: Vec<Vec<&RegexRule>> = vec![
         draft.regex_rules.patterns.iter().collect(),
@@ -200,7 +200,7 @@ fn load_builtin_rule_template_names(draft: &crate::config::DraftConfig) -> HashS
     names
 }
 
-/// 对齐 Python `load_builtin_rule_term_names`（三组规则的 name 并集）。
+/// `load_builtin_rule_term_names`（三组规则的 name 并集）。
 fn load_builtin_rule_term_names(draft: &crate::config::DraftConfig) -> HashSet<String> {
     let groups: Vec<Vec<&RegexRule>> = vec![
         draft.regex_rules.tokens.iter().collect(),
@@ -218,7 +218,7 @@ fn load_builtin_rule_term_names(draft: &crate::config::DraftConfig) -> HashSet<S
     names
 }
 
-/// 对齐 Python `bucket_family`。
+/// `bucket_family`：候选家族归并。
 fn bucket_family(bucket: &str) -> String {
     if matches!(
         bucket,
@@ -237,7 +237,7 @@ fn bucket_family(bucket: &str) -> String {
     }
 }
 
-/// 中间行（聚合候选；对齐 Python 行 dict 键序，`_story_set` 不序列化）。
+/// 中间行（聚合候选；行键序固定，`_story_set` 不序列化）。
 #[derive(Debug, Default)]
 struct CandidateRow {
     bucket: String,
@@ -268,7 +268,7 @@ impl CandidateRow {
     }
 }
 
-/// 对齐 Python `aggregate_candidates(payloads, field, count_key="count")`。
+/// `aggregate_candidates(payloads, field, count_key="count")`。
 fn aggregate_candidates(payloads: &[Value], field: &str) -> Vec<Value> {
     let mut rows: Vec<CandidateRow> = Vec::new();
     let mut index: HashMap<(String, String), usize> = HashMap::new();
@@ -364,7 +364,7 @@ fn aggregate_candidates(payloads: &[Value], field: &str) -> Vec<Value> {
     rows
 }
 
-/// Python `sorted(key=lambda item: (-story_count, -count, name))` 的稳定排序
+/// `(-story_count, -count, name)` 的稳定排序
 /// （无键时退回首现序）。
 fn sort_by_counts(rows: &mut [Value]) {
     rows.sort_by(|a, b| {
@@ -387,7 +387,7 @@ fn sort_by_counts(rows: &mut [Value]) {
     });
 }
 
-/// 中间行（家族聚合；对齐 Python 行 dict 键序）。
+/// 中间行（家族聚合；行键序固定）。
 #[derive(Debug, Default)]
 struct FamilyRow {
     name: String,
@@ -422,7 +422,7 @@ impl FamilyRow {
     }
 }
 
-/// 对齐 Python `aggregate_candidate_families(candidates)`。
+/// `aggregate_candidate_families(candidates)`。
 fn aggregate_candidate_families(candidates: &[Value]) -> Vec<Value> {
     let mut rows: Vec<FamilyRow> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
@@ -519,7 +519,7 @@ fn aggregate_candidate_families(candidates: &[Value]) -> Vec<Value> {
     rows
 }
 
-/// 对齐 Python `aggregate_deposition_targets(payloads)`（`Counter.most_common` 全量）。
+/// `aggregate_deposition_targets(payloads)`（全量计数）。
 fn aggregate_deposition_targets(payloads: &[Value]) -> Vec<Value> {
     let mut counter: Ctr = Ctr::default();
     for payload in payloads {
@@ -544,7 +544,7 @@ fn aggregate_deposition_targets(payloads: &[Value]) -> Vec<Value> {
         .collect()
 }
 
-/// 对齐 Python `build_learning_anchors`（排序后截前 16）。
+/// `build_learning_anchors`（排序后截前 16）。
 fn build_learning_anchors(
     template_families: &[Value],
     term_candidates: &[Value],
@@ -610,7 +610,7 @@ fn build_learning_anchors(
     anchors
 }
 
-/// 对齐 Python `build_writeback_queue`（排序 `(-stories, -count, name)` 后截前 16）。
+/// `build_writeback_queue`（排序 `(-stories, -count, name)` 后截前 16）。
 fn build_writeback_queue(
     template_families: &[Value],
     term_candidates: &[Value],
@@ -965,7 +965,7 @@ pub fn build_catalog_markdown(
     lines.join("\n") + "\n"
 }
 
-/// 对齐 Python `build_catalog_payload`。
+/// `build_catalog_payload`。
 pub fn build_catalog_payload(ctx: &DraftContext, novel_dir: &Path, payloads: &[Value]) -> Value {
     let draft = ctx.draft_rules();
     let template_bank_names = load_bank_names(draft, "name");
@@ -1024,7 +1024,7 @@ pub fn build_catalog_payload(ctx: &DraftContext, novel_dir: &Path, payloads: &[V
     Value::Object(map)
 }
 
-/// 对齐 Python `resolve_payloads`。
+/// `resolve_payloads`。
 fn resolve_payloads(
     paths: &[PathBuf],
     ctx: &DraftContext,
@@ -1056,7 +1056,7 @@ fn resolve_payloads(
     }
 }
 
-/// 对齐 Python `main`：解析载荷 → 聚合 → 写 SUMMARY.md + CATALOG.json。
+/// 解析载荷 → 聚合 → 写 SUMMARY.md + CATALOG.json。
 /// 返回（退出码, 应打印路径序列）。
 pub fn run(opts: &CatalogOptions) -> Result<(i32, Vec<PathBuf>)> {
     let rules = config::load_rules(&config::default_rules_path())?;

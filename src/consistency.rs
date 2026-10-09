@@ -1,4 +1,4 @@
-//! 一致性（consistency）模块：`src/consistency.py` 的 Rust 移植。
+//! 一致性（consistency）模块。
 //!
 //! 为小说文件构建并查询轻量一致性搜索索引：SQLite（rusqlite，bundled
 //! FTS5）+ 反馈 JSONL 回路。子命令：
@@ -6,8 +6,8 @@
 //! feedback-add / feedback-summary / review-queue / catalog / suspects /
 //! alignment（13 支）。
 //!
-//! 输出文案逐字对齐 Python（含中文措辞）；SQL 原文照抄并参数化；
-//! Python 隐式提交（每命令退出前 commit）在 rusqlite 下语句级 autocommit，
+//! 输出文案固定（含中文措辞，逐字节稳定）；SQL 参数化；
+//! 每命令退出前提交，语句级 autocommit 下
 //! 最终状态一致。
 
 use std::collections::BTreeMap;
@@ -23,7 +23,7 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 use crate::stats::Ctr;
 
 // ---------------------------------------------------------------------------
-// 常量（逐字照抄 Python 字面量）
+// 常量（字面量固定）
 // ---------------------------------------------------------------------------
 
 /// 概念卡 glob。
@@ -37,7 +37,7 @@ pub const DOC_GLOBS: &[&str] = &[
     "drafts/**/*.md",
 ];
 
-pub const CONSISTENCY_MODULE_TARGET: &str = "src/consistency.py";
+pub const CONSISTENCY_MODULE_TARGET: &str = "sentinel consistency";
 pub const RULES_TEMPLATE_TARGET: &str = "configs/rules/review.yaml#draft.template_rules";
 pub const BOOK_DRAFT_RULES_TARGET: &str = "novel1/rules/draft.md";
 pub const CONSISTENCY_CLI: &[&str] = &["sentinel", "consistency"];
@@ -162,7 +162,7 @@ pub const RELATIONSHIP_DISTANT_TERMS: &[&str] = &[
     "离远点",
 ];
 
-/// `FACT_TERM_GROUPS`（Python dict 插入序 = 字面量顺序）。
+/// `FACT_TERM_GROUPS`（插入序 = 字面量顺序）。
 const FACT_TERM_GROUPS: &[(&str, &[&str])] = &[
     ("injury_negative", INJURY_NEGATIVE_TERMS),
     ("injury_stable", INJURY_STABLE_TERMS),
@@ -176,7 +176,7 @@ const FACT_TERM_GROUPS: &[(&str, &[&str])] = &[
 ];
 
 // ---------------------------------------------------------------------------
-// 正则（re → regex；Python `\d` 为 Unicode，本仓文件名均为 ASCII 数字，等价）
+// 正则（regex 编译；`\d` 仅匹配 ASCII 数字，本仓文件名均为 ASCII 数字）
 // ---------------------------------------------------------------------------
 
 static WS_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+").expect("空白正则"));
@@ -223,7 +223,7 @@ static ALIGN_DRAFT_ONLY_RE: LazyLock<Regex> =
 // 基础类型
 // ---------------------------------------------------------------------------
 
-/// 实体（对应 Python `Entity` dataclass）。
+/// 实体。
 #[derive(Debug, Clone)]
 pub struct Entity {
     pub category: String,
@@ -245,7 +245,7 @@ pub enum EvidenceKind {
     Alignment,
 }
 
-/// 冲突候选行（Python `dict[str, object]` 行模型）。
+/// 冲突候选行（键值对行模型）。
 #[derive(Debug, Clone, Default)]
 pub struct ConflictRow {
     pub category: String,
@@ -402,7 +402,7 @@ pub struct FeedbackSummary {
     pub story_filter: Option<String>,
 }
 
-/// `build_story_conflict_snapshot_from_path` 输出（Python 快照 dict 的全字段）。
+/// `build_story_conflict_snapshot_from_path` 输出（快照全字段）。
 #[derive(Debug)]
 pub struct StoryConflictSnapshot {
     pub available: bool,
@@ -426,7 +426,7 @@ pub struct StoryConflictSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// 基础工具（逐段对齐 Python）
+// 基础工具
 // ---------------------------------------------------------------------------
 
 /// `normalize_whitespace`：连续空白压成单空格并去首尾空白。
@@ -549,7 +549,7 @@ pub fn build_pending_review_focus(row: &ConflictRow) -> String {
     "先回看相关证据段，再决定是 confirmed、false_positive 还是 designed_keep。".to_string()
 }
 
-/// `shlex.quote`（POSIX，对齐 CPython `shlex._quote`）。
+/// `shlex.quote`（POSIX 引用规则）。
 fn shlex_quote(value: &str) -> String {
     if value.is_empty() {
         return "''".to_string();
@@ -689,8 +689,8 @@ pub fn load_feedback_entries(path: &Path) -> Result<BTreeMap<String, FeedbackRec
     Ok(entries)
 }
 
-/// `append_feedback_entry`（Python `json.dumps` 默认分隔符 `": "` / `", "`；
-/// 键序 = Python entry dict 插入序，与 map 后端无关）。
+/// `append_feedback_entry`（JSON 默认分隔符 `": "` / `", "`；
+/// 键序 = entry 插入序，与 map 后端无关）。
 pub fn append_feedback_entry(path: &Path, entry: &FeedbackRecord) -> Result<()> {
     const KEY_ORDER: &[&str] = &[
         "conflict_key",
@@ -1013,7 +1013,7 @@ pub fn iter_documents(novel_dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
-/// Python `str.splitlines()` 等价迭代（\r\n 计一次换行）。
+/// 按换行迭代（`\r\n` 计一次换行）。
 fn splitlines_iter(text: &str) -> impl Iterator<Item = &str> {
     struct Splitlines<'a>(&'a str, usize, usize);
     impl<'a> Iterator for Splitlines<'a> {
@@ -1083,8 +1083,7 @@ pub fn split_passages(text: &str) -> Vec<(usize, usize, String)> {
     passages
 }
 
-/// schema DDL：与 Python `build_schema` 的 `executescript` 字面量逐字一致
-/// （SQLite 按执行文本原样存 `sqlite_master.sql`，dump 字节级一致要求 8 空格缩进）。
+/// schema DDL：`sqlite_master.sql` 存执行文本原样（dump 字节级一致要求 8 空格缩进）。
 const SCHEMA_DDL: &str = r#"
         DROP TABLE IF EXISTS fact_candidates;
         DROP TABLE IF EXISTS mentions;
@@ -1173,7 +1172,7 @@ fn build_schema(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Python `re.fullmatch(pat, part)` 语义（regex 1.x 无 `is_exact_match`，用 `find` + 全跨度判断）。
+/// 全匹配语义（regex 1.x 无 `is_exact_match`，用 `find` + 全跨度判断）。
 fn part_full_match(re: &Regex, part: &str) -> bool {
     re.find(part)
         .is_some_and(|m| m.start() == 0 && m.end() == part.len())
@@ -1236,7 +1235,7 @@ pub fn classify_document(
     (doc_type, arc, story, chapter)
 }
 
-/// `build_index`：重建索引（Python 在实体插入后与函数尾部各 `conn.commit()` 一次；
+/// `build_index`：重建索引（实体插入后与函数尾部各提交一次；
 /// rusqlite autocommit 逐语句提交，终态一致）。
 pub fn build_index(novel_dir: &Path, db_path: &Path) -> Result<()> {
     let entities = load_entities(novel_dir)?;
@@ -1330,7 +1329,7 @@ pub fn build_index(novel_dir: &Path, db_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// `open_db`：不存在则创建（与 Python `sqlite3.connect` 一致）。
+/// `open_db`：不存在则创建（`sqlite3` connect 语义）。
 pub fn open_db(path: &Path) -> Result<Connection> {
     Ok(Connection::open(path)?)
 }
@@ -1912,7 +1911,7 @@ pub fn query_fact_support_summary(
         })?
         .next()
         .ok_or_else(|| anyhow::anyhow!("support 查询无结果"))??;
-    // Python `int(row["x"] or 0)`：COUNT 非 NULL，直接返回。
+    // COUNT 非 NULL，直接返回。
     Ok(row)
 }
 
@@ -2237,7 +2236,7 @@ pub struct FeedbackRequest {
 }
 
 /// `write_feedback`：成功返回 `Ok(None)`；校验/匹配失败返回 `Ok(Some(msg))`
-/// （Python `raise SystemExit(msg)` → stderr + 退出码 1）。
+/// （校验/匹配失败消息走 stderr + 退出码 1）。
 pub fn write_feedback(
     conn: &Connection,
     feedback_path: &Path,
@@ -2497,7 +2496,7 @@ fn unavailable_snapshot(reason: &str) -> StoryConflictSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// 打印（stdout 逐行对齐 Python）
+// 打印（stdout 逐行固定）
 // ---------------------------------------------------------------------------
 
 /// `print_search_results`。
@@ -3330,12 +3329,12 @@ pub fn print_story_alignment(conn: &Connection, limit: i64) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
-// CLI（clap 子命令面，参数名/默认值与 Python argparse 一致）
+// CLI（clap 子命令面，参数名/默认值固定）
 // ---------------------------------------------------------------------------
 
 use clap::Subcommand;
 
-/// `consistency` 子命令（与 Python argparse 的 13 个子命令一一对应）。
+/// `consistency` 子命令（13 个子命令）。
 #[derive(Subcommand)]
 pub enum ConsistencyCmd {
     /// 为小说目录构建索引
@@ -3467,7 +3466,7 @@ fn resolve_feedback_path(db_path: &Path, explicit: Option<&Path>) -> PathBuf {
         .unwrap_or_else(|| default_feedback_path_from_db(&resolve_db_path(db_path)))
 }
 
-/// 子命令分发（对应 Python `main()`；返回进程退出码）。
+/// 子命令分发（返回进程退出码）。
 pub fn run(cmd: &ConsistencyCmd) -> Result<i32> {
     use ConsistencyCmd::*;
     match cmd {

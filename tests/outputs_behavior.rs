@@ -1,7 +1,6 @@
-//! `tests/test_outputs.py` 四项行为断言的 Rust pub API 移植。
+//! 评审输出 pub API 四项行为断言。
 //!
-//! Python 侧依赖外置 `novel-novel2` 数据（缺失时 SkipTest）；Rust 侧等价保证
-//! 由 `tests/fixtures/stats-draft/novel-a` 镜像树承担（该树的 golden 基线已记录
+//! 依赖 `tests/fixtures/stats-draft/novel-a` 镜像树（该树的 golden 基线已记录
 //! `repeated=`意象压轴 x2`` 章末连发与 ch03/ch04 的 `ending_tone` 合流，见
 //! `tests/fixtures/expected/reports-scorecard/default` 与 `reports-learning/default`）。
 
@@ -26,7 +25,7 @@ fn story_dir() -> PathBuf {
 }
 
 /// 装配 story 全章：章文件（chapter 序）× 分析（sample_limit=4，语料学习开启）
-/// × 一致性快照 + 标签/引擎，对齐 Python `ReviewOutputTests.setUpClass`。
+/// × 一致性快照 + 标签/引擎。
 struct Fixture {
     analyses: Vec<(PathBuf, Analysis)>,
     snapshots: Vec<(PathBuf, StoryConflictSnapshot)>,
@@ -82,7 +81,7 @@ fn snapshot_refs(f: &Fixture) -> Vec<(PathBuf, &StoryConflictSnapshot)> {
     f.snapshots.iter().map(|(p, s)| (p.clone(), s)).collect()
 }
 
-/// Python `test_reviewlib_paths_and_io_helpers`：`stats_path_for` 的
+/// `stats_path_for` 的
 /// `drafts/` → `draft-stats/` 替换 + 写文件自动建父目录。
 #[test]
 fn paths_and_io_helpers() {
@@ -104,7 +103,7 @@ fn paths_and_io_helpers() {
     );
 }
 
-/// Python `test_scorecard_and_learning_summaries_include_ending_trends`：
+/// story 级 SUMMARY（scorecard 与 learning 两份）渲染章末趋势节。
 /// story 级 SUMMARY（scorecard 与 learning 两份）渲染章末趋势节。
 #[test]
 fn scorecard_and_learning_summaries_include_ending_trends() {
@@ -136,7 +135,7 @@ fn scorecard_and_learning_summaries_include_ending_trends() {
     );
 }
 
-/// Python `test_story_trend_convergence_can_raise_scorecard_risk`：
+/// 章末-色调合流章节的趋势快照应含 `ending_tone`，且喂给 `build_axes` 后
 /// 章末-色调合流章节的趋势快照应含 `ending_tone`，且喂给 `build_axes` 后
 /// 门禁秩不降（`gate_rank[converged] >= gate_rank[base]`）。
 #[test]
@@ -201,7 +200,7 @@ fn story_trend_convergence_can_raise_scorecard_risk() {
     );
 }
 
-/// Python `test_review_kit_assigns_repeated_ending_trend_review`：
+/// 同类章末连发应派出一条 `source=ending_trend` 的评审任务。
 /// 同类章末连发应派出一条 `source=ending_trends` 的评审任务。
 #[test]
 fn review_kit_assigns_repeated_ending_trend_review() {

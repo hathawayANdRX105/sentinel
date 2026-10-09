@@ -1,23 +1,18 @@
 //! `study` 工具行为测试：`study-compare` 与 `study-pov`。
 //!
-//! **py 参考导入损坏声明**：
-//! - `study/pov.py` 顶部 `from audit.draft import ANALYSIS_SCHEMA_VERSION, split_paragraph_infos, split_sentences`
-//!   中 `ANALYSIS_SCHEMA_VERSION` 在主仓 `src/audit/draft.py` 中**不存在**（grep 零命中），
-//!   py 侧 `python3 -m study.pov` 必 ImportError 崩溃。
-//! - 本测试基线为按 py 代码**意图推导**（`build_pov_candidates` 逻辑 + py 侧 ponytail 注释承认
-//!   pronouns/personal_names 永远为空），非 py 运行时输出。
+//! 基线为按代码逻辑手工推导（`build_pov_candidates` 逻辑 + 密度三字段恒为 0 的说明），
+//! 非运行时输出。
 //!
-//! `study-compare` 无导入损坏，但其逻辑简单（JSON 读 + Markdown 表生成），
-//! 基线同样按 py 代码逻辑手工推导。
+//! `study-compare` 逻辑简单（JSON 读 + Markdown 表生成），
+//! 基线同样按代码逻辑手工推导。
 
 use sentinel::study::compare;
 use sentinel::study::pov;
 
 // ── study-compare 库级测试 ──────────────────────────────────────────────────
 
-/// 表头 + 分隔行 + 一行数字指标（对齐 py `test_compare_row_count` 语义，
-/// 但 py 侧 row_count=4 是断言 bug（实际 5 行），Rust 侧按正确行数 4 断言：
-/// 1 表头 + 1 分隔 + 1 数字行 + 1 非数字行 = 4 数据行（不含表头/分隔））。
+/// 表头 + 分隔行 + 一行数字指标：
+/// 1 表头 + 1 分隔 + 1 数字行 + 1 非数字行 = 4 行（不含表头/分隔前的内容）。
 #[test]
 fn compare_table_structure() {
     let baseline = serde_json::json!({"summary": {"a": 1, "b": "foo"}});
@@ -51,7 +46,7 @@ fn compare_table_structure() {
 }
 
 /// `audit-draft --format json` 的顶层数组输出可直接喂给 study-compare
-/// （py 面对同样输入直接崩溃；Rust 取首元素出表）。空数组报错。
+/// （本模块对同样输入取首元素出表）。空数组报错。
 #[test]
 fn compare_accepts_audit_json_array_report() {
     let tmp = tempfile::tempdir().unwrap();
@@ -80,7 +75,7 @@ fn compare_accepts_audit_json_array_report() {
     assert!(err.to_string().contains("空数组"), "空数组应报错: {err}");
 }
 
-/// schema_version 不等 → 错误消息含双方版本号（对齐 py ValueError 文案）。
+/// schema_version 不等 → 错误消息含双方版本号。
 #[test]
 fn compare_schema_mismatch_error() {
     let baseline = serde_json::json!({"schema_version": 1, "summary": {"a": 1}});
@@ -130,12 +125,12 @@ fn compare_float_delta_rendering() {
     let applied = serde_json::json!({"summary": {"f1": 15.0, "f2": 11.0}});
     let table = compare::build_compare_table(&baseline, &applied);
 
-    // f1: 10.0 - 10.0 = 5.0（float 运算 → py_float_str → "5.0"）
+    // f1: 15.0 - 10.0 = 5.0（float 运算 → `float_repr` → "5.0"）
     assert!(
         table.contains("| f1 | 10.0 | 15.0 | 5.0 |"),
         "float 差值应渲染 5.0: {table}"
     );
-    // f2: 11.0 - 10.5 = 0.5（float 运算 → py_float_str → "0.5"）
+    // f2: 11.0 - 10.5 = 0.5（float 运算 → `float_repr` → "0.5"）
     assert!(
         table.contains("| f2 | 10.5 | 11.0 | 0.5 |"),
         "float 差值 0.5 应正确渲染: {table}"
@@ -177,14 +172,13 @@ fn pov_schema_version_is_one() {
     assert_eq!(
         serde_json::to_value(&analysis).unwrap()["schema_version"],
         serde_json::json!(1),
-        "schema_version 应为 1（py 常量虚构，Rust 取意图值）"
+        "schema_version 应为 1"
     );
 }
 
 /// 给定样例文本（标题 + 四段中文）的候选结构基线。
 ///
-/// py 参考导入损坏（`ANALYSIS_SCHEMA_VERSION` 不存在），本基线按 py 代码
-/// 逻辑手工推导。注意：`split_paragraph_infos` 不过滤 `#` 标题行（
+/// 按代码逻辑手工推导。注意：`split_paragraph_infos` 不过滤 `#` 标题行（
 /// `markdown_noise` 只在 `split_sentence_infos` 里生效），
 /// 所以 `# Chapter 1` 计为第 1 段，共 5 段。
 /// - 5 段：`line_start` 分别为 1, 3, 5, 7, 9。
@@ -223,7 +217,7 @@ fn pov_candidate_structure_for_sample() {
         serde_json::json!([1, 3, 5, 7, 9]),
         "证据行号应为 [1,3,5,7,9]: {json}"
     );
-    // 密度全 0：py 元组 `(count, density)` → JSON 数组 `[0, 0.0]`
+    // 密度全 0：`(count, density)` 元组 → JSON 数组 `[0, 0.0]`
     assert_eq!(c0["pronoun_density"], serde_json::json!([0, 0.0]));
     assert_eq!(c0["personal_name_density"], serde_json::json!([0, 0.0]));
     assert_eq!(c0["dialogue_attribution"], serde_json::json!([0, 0.0]));

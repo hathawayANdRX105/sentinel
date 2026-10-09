@@ -1,7 +1,7 @@
-//! `reports/kit.py` 移植：故事级评审套件（`reports-kit` 子命令）。
+//! 故事级评审套件（`reports-kit` 子命令）。
 //!
 //! 每章写 scorecards / learning / profiles 三类单章报告，story 级写四个
-//! SUMMARY + 模板 backlog 两件套 + `review-kit/SUMMARY.md`（逐字对齐）。
+//! SUMMARY + 模板 backlog 两件套 + `review-kit/SUMMARY.md`（字节稳定渲染）。
 
 use std::path::{Path, PathBuf};
 
@@ -23,13 +23,13 @@ use crate::stats::draft::{
     Ctr,
 };
 
-/// `reports-kit` 子命令参数（对齐 Python `parse_args`：位置 `paths` nargs+、
+/// `reports-kit` 子命令参数（位置 `paths` nargs+、
 /// `--sample-limit` 缺省 6）。
 #[derive(Debug, Clone)]
 pub struct KitOptions {
     /// 草稿章文件或目录。
     pub paths: Vec<PathBuf>,
-    /// 每条规则最多记录的样本行数（Python 默认 6）。
+    /// 每条规则最多记录的样本行数（默认 6）。
     pub sample_limit: usize,
 }
 
@@ -43,7 +43,7 @@ pub fn review_kit_path_for(draft_path: &Path) -> Result<PathBuf> {
         .join("SUMMARY.md"))
 }
 
-/// 派单条目（对齐 Python `_add_assignment` 的 dict 键序）。
+/// 派单条目（`add_assignment` 键序）。
 #[derive(Debug, Clone)]
 pub struct Assignment {
     pub priority: String,
@@ -54,7 +54,7 @@ pub struct Assignment {
     pub source: String,
 }
 
-/// Python `_assignment_key`：`(priority, chapter, title)`。
+/// `assignment_key`：`(priority, chapter, title)`。
 fn assignment_key(item: &Assignment) -> (String, String, String) {
     (
         item.priority.clone(),
@@ -63,7 +63,7 @@ fn assignment_key(item: &Assignment) -> (String, String, String) {
     )
 }
 
-/// Python `_assignment_sort_key`：`(priority_rank, source_rank, chapter, title)`。
+/// `assignment_sort_key`：`(priority_rank, source_rank, chapter, title)`。
 fn assignment_sort_key(item: &Assignment) -> (i32, i32, String, String) {
     let priority_rank = match item.priority.as_str() {
         "P0" => 0,
@@ -88,7 +88,7 @@ fn assignment_sort_key(item: &Assignment) -> (i32, i32, String, String) {
     )
 }
 
-/// Python `_add_assignment`（按 `(priority, chapter, title)` 首现去重）。
+/// `add_assignment`（按 `(priority, chapter, title)` 首现去重）。
 fn add_assignment(assignments: &mut Vec<Assignment>, item: Assignment) {
     let key = assignment_key(&item);
     if assignments
@@ -101,7 +101,7 @@ fn add_assignment(assignments: &mut Vec<Assignment>, item: Assignment) {
     assignments.push(item);
 }
 
-/// 派单条目（对齐 Python collect_review_assignments 内各 `_add_assignment` 调用）。
+/// 派单条目（`collect_review_assignments` 内各 `add_assignment` 调用）。
 fn make_assignment(
     priority: &str,
     chapter: &str,
@@ -162,7 +162,7 @@ fn collect_repeated_value_runs(rows: &[(PathBuf, String)]) -> Vec<(String, Vec<P
     runs
 }
 
-/// 对齐 Python `_collect_repeated_ending_runs`（chapter 序，连续同 label 且 >= 2）。
+/// 章末标签连续段（chapter 序，连续同 label 且 >= 2）。
 fn collect_repeated_ending_runs(
     analyses: &[(PathBuf, &Analysis)],
     labels: &EndingLabels,
@@ -177,7 +177,7 @@ fn collect_repeated_ending_runs(
         .collect()
 }
 
-/// 对齐 Python `_collect_converging_trend_runs`。
+/// 收敛趋势段。
 fn collect_converging_trend_runs(
     analyses: &[(PathBuf, &Analysis)],
     labels: &EndingLabels,
@@ -258,7 +258,7 @@ struct ConvergeRun {
     secondary_label: String,
 }
 
-/// 对齐 Python `collect_review_assignments`（评审套件派单；`ordered` 为章文件 ×
+/// 评审套件派单（`ordered` 为章文件 ×
 /// 分析，`snapshots` 为章文件 × 一致性快照，均按输入序）。
 pub fn collect_review_assignments(
     story_dir: &Path,
@@ -529,7 +529,7 @@ pub fn collect_review_assignments(
     }
 }
 
-/// 对齐 Python `build_story_review_kit`。
+/// 故事级 review kit。
 fn build_story_review_kit(
     story_dir: &Path,
     ordered: &[(PathBuf, &Analysis)],
@@ -705,7 +705,7 @@ fn build_story_review_kit(
     Ok(lines.join("\n") + "\n")
 }
 
-/// 对齐 Python `main`：逐章写三类单章报告 → 按 story 写 SUMMARY 与 review kit。
+/// 逐章写三类单章报告 → 按 story 写 SUMMARY 与 review kit。
 /// 返回（退出码, 应打印路径序列）。
 pub fn run(opts: &KitOptions) -> Result<(i32, Vec<PathBuf>)> {
     let files = collect_chapter_files(&opts.paths)?;

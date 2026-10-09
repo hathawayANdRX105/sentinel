@@ -1,17 +1,13 @@
 //! `study.pov`：中文视角切分候选检测。
 //!
-//! 行为对齐 Python `src/study/pov.py`（143 行，**py 侧导入损坏**：
-//! `ANALYSIS_SCHEMA_VERSION` 在 `audit/draft.py` 中不存在，py 必崩；
-//! 本模块按 py 代码意图 + Rust 实际行为移植）：
-//!
 //! - 段落切分复用 [`crate::text::TextSplitter::split_paragraph_infos`]；
-//! - `schema_version` 取 **1**（py 常量虚构，无 py 真值可对齐）；
+//! - `schema_version` 固定为 **1**；
 //! - 密度字段（pronoun / personal_name / dialogue_attribution）恒为 0
-//!   （py 侧 ponytail 注释承认 audit 管道未填 pronouns / personal_names）；
+//!   （audit 管道未填 pronouns / personal_names，密度三字段均为 `(0, 0.0)`）；
 //! - 候选分组：相邻段密度不变量变化才切组，尾组始终附加；
 //! - `study` 词集缺省时全空（[`crate::config::StudyConfig`] 缺省 `None`）。
 //!
-//! 输出 JSON 键序对齐 py `build_pov_candidates` 返回 dict。
+//! 输出 JSON 键序固定。
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -21,12 +17,10 @@ use crate::text::TextSplitter;
 
 /// POV analysis 的 `schema_version` 值。
 ///
-/// Python `pov.py` 引用 `ANALYSIS_SCHEMA_VERSION`（`audit.draft` 常量），
-/// 该常量在 py 主仓 `src/audit/draft.py` 中**不存在**（grep 零命中），
-/// py 侧 ImportError 必崩。Rust 取意图值 `1`。
+/// 固定为 `1`。
 pub const SCHEMA_VERSION: i64 = 1;
 
-/// 单个 POV 候选段（对齐 py `_dominant_signal_change` 返回 dict 的键序）。
+/// 单个 POV 候选段（键序固定）。
 #[derive(Debug, Clone, Serialize)]
 struct PoVObservation {
     candidate: &'static str,
@@ -44,7 +38,7 @@ struct PovSummary {
     candidates: Vec<PoVObservation>,
 }
 
-/// POV analysis 顶层结构（键序对齐 py `build_pov_candidates` dict）。
+/// POV analysis 顶层结构（键序固定）。
 #[derive(Debug, Clone, Serialize)]
 pub struct PovAnalysis {
     schema_version: i64,
@@ -54,19 +48,19 @@ pub struct PovAnalysis {
     note: &'static str,
 }
 
-/// 对给定文本计算 POV 切分候选（对齐 py `build_pov_candidates`）。
+/// 对给定文本计算 POV 切分候选。
 ///
 /// `splitter` 须由 [`crate::text::TextSplitter::new`] 创建，
-/// 使用 `draft.markdown_noise_line.pattern` 与 py 侧一致。
+/// 使用 `draft.markdown_noise_line.pattern`。
 pub fn build_pov_candidates(text: &str, splitter: &TextSplitter) -> PovAnalysis {
     let raw_infos = splitter.split_paragraph_infos(text);
     let total_paragraphs = raw_infos.len() as u32;
 
-    // py ponytail：pronouns / personal_names 永远为空（audit 管道未填），
-    // dialogue_attribution 恒为 0 → 密度三字段均为 py 元组 `(count, density)`
-    // 的形状 `(0, 0.0)`（count int、density float，JSON 渲染 `[0, 0.0]`）。
+    // pronouns / personal_names 恒为空（audit 管道未填），
+    // dialogue_attribution 恒为 0 → 密度三字段均为 `(0, 0.0)`
+    // （count int、density float，JSON 渲染 `[0, 0.0]`）。
 
-    // 候选分组逻辑（对齐 py `_dominant_signal_change`）：
+    // 候选分组逻辑：
     // 由于所有密度恒为 0，`prev` 始终为 `(0.0, 0.0, 0.0)`，
     // 循环中从不触发切组 → 只有尾组（当有段落时）。
     let mut candidates: Vec<PoVObservation> = Vec::new();
@@ -95,7 +89,7 @@ pub fn build_pov_candidates(text: &str, splitter: &TextSplitter) -> PovAnalysis 
     }
 }
 
-/// 运行 `study-pov` 子命令，返回格式化 JSON（对齐 py `json.dumps(ensure_ascii=False, indent=2)`）。
+/// 运行 `study-pov` 子命令，返回格式化 JSON（2 空格缩进、非 ASCII 原样输出）。
 pub fn run_pov(
     chapter_path: &std::path::Path,
     config: &crate::config::ReviewRules,

@@ -1,7 +1,6 @@
-//! `stats-draft` 集成测试：与 Python 生成的基线逐字节对照。
-//!
-//! 基线由 `PYTHONPATH=src python3 -m stats.draft`（同参数、同输出布局）生成后入库
-//! `tests/fixtures/expected/stats-draft/{轮次}`。报告只内嵌 `path.name`，不含输入
+//! `stats-draft` 集成测试：与 golden 基线逐字节对照
+//! （`tests/fixtures/expected/stats-draft/{轮次}`，同参数、同输出布局定稿）。
+//! 报告只内嵌 `path.name`，不含输入
 //! 全路径，故输出到临时目录后可直接按相对布局对照。
 
 use std::fs;
@@ -76,7 +75,7 @@ fn options(
 
 /// 默认轮：`novel-a` 整树（含 concept/chapter-plan 语料学习），
 /// 单文件报告 + `draft-stats/SUMMARY.md` + `pairs`/`triples` 滚动窗口镜像树
-/// 与 Python 基线逐字节一致。
+/// 与 golden 基线逐字节一致。
 #[test]
 fn stats_draft_default_round_bytes_match() {
     pin_cwd();
@@ -161,7 +160,7 @@ fn stats_draft_no_corpus_round_bytes_match() {
     );
 }
 
-/// 参数面护栏：`-o`/`--output-root` 互斥、空输入、`-o` 多文件，退出码与 Python 一致。
+/// 参数面护栏：`-o`/`--output-root` 互斥、空输入、`-o` 多文件的退出码与文案。
 #[test]
 fn stats_draft_cli_guardrails() {
     pin_cwd();

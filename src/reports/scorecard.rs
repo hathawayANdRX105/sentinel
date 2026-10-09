@@ -1,10 +1,10 @@
-//! `reports/scorecard.py` 移植（`reports-scorecard` 子命令）：
+//! `reports-scorecard` 子命令：
 //! 草稿章评审记分卡（scorecards/*.md + 每 story 目录 SUMMARY.md 镜像树）。
 //!
 //! - 章节分析复用 `audit::draft::analyze_path`（语料学习缺省开启）；
 //! - 一致性快照来自 `consistency::build_story_conflict_snapshot`；
-//! - 对齐信号来自 `reports::alignment`（`lib/alignment.py` 移植）；
-//! - 中文文案逐字照抄 Python 字面量；浮点输出走 `py_float_str`（Python f-string 语义）。
+//! - 对齐信号来自 `reports::alignment`；
+//! - 中文文案固定；浮点输出走 `audit::draft::float_repr`（浮点展示语义）。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::audit::draft::{
-    analyze_path, build_corpus_profile, py_float_str, Analysis, Counter, DraftContext, HardFlag,
+    analyze_path, build_corpus_profile, float_repr, Analysis, Counter, DraftContext, HardFlag,
     ReviewReminder,
 };
 use crate::audit::plan::PlanEngine;
@@ -26,13 +26,13 @@ use crate::stats::draft::{
     summarize_runs,
 };
 
-/// `reports-scorecard` 子命令参数（对齐 Python `parse_args`：位置 `paths` nargs+、
+/// `reports-scorecard` 子命令参数（位置 `paths` nargs+、
 /// `--sample-limit` 缺省 6）。
 #[derive(Debug, Clone)]
 pub struct ScorecardOptions {
     /// 位置参数：草稿章文件或目录。
     pub paths: Vec<PathBuf>,
-    /// 每条规则最多记录的样本行数（Python 默认 6）。
+    /// 每条规则最多记录的样本行数（默认 6）。
     pub sample_limit: usize,
 }
 
@@ -59,7 +59,7 @@ fn ending_display(labels: &EndingLabels, label: &str) -> String {
         .unwrap_or_else(|| label.to_string())
 }
 
-/// Python `scorecard_path_for`：`stats_path_for(draft).parent / scorecards / {stem}.md`。
+/// `scorecard_path_for`：`stats_path_for(draft).parent / scorecards / {stem}.md`。
 pub fn scorecard_path_for(draft_path: &Path) -> Result<PathBuf> {
     let stats = stats_path_for(draft_path, None)?;
     let stem = draft_path
@@ -89,7 +89,7 @@ pub struct BonusCandidate {
     pub reason: String,
 }
 
-/// Python `build_bonus_candidates`（风格侧，截前 4）。
+/// `build_bonus_candidates`（风格侧，截前 4）。
 pub fn build_bonus_candidates(analysis: &Analysis) -> Vec<BonusCandidate> {
     let mut candidates: Vec<BonusCandidate> = Vec::new();
     let summary = &analysis.summary;
@@ -159,7 +159,7 @@ pub fn build_bonus_candidates(analysis: &Analysis) -> Vec<BonusCandidate> {
     candidates
 }
 
-/// Python `build_consistency_bonus_candidates`（一致性侧，截前 2）。
+/// `build_consistency_bonus_candidates`（一致性侧，截前 2）。
 fn build_consistency_bonus_candidates(
     snapshot: Option<&StoryConflictSnapshot>,
 ) -> Vec<BonusCandidate> {
@@ -194,7 +194,7 @@ pub struct Axis {
     pub reason: String,
 }
 
-/// Python `build_axes`：8 条固定轴（名称/说明逐字照抄）。
+/// `build_axes`：8 条固定轴（名称/说明固定）。
 pub fn build_axes(
     analysis: &Analysis,
     consistency_snapshot: Option<&StoryConflictSnapshot>,
@@ -426,7 +426,7 @@ pub fn build_axes(
     axes
 }
 
-/// Python `decide_gate`：门禁（gate / priority / recommendation）。
+/// `decide_gate`：门禁（gate / priority / recommendation）。
 pub fn decide_gate(analysis: &Analysis, axes: &[Axis]) -> (String, String, String) {
     let p1_count = analysis
         .review_reminders
@@ -455,14 +455,14 @@ pub fn decide_gate(analysis: &Analysis, axes: &[Axis]) -> (String, String, Strin
     ("PASS".to_string(), "P2".to_string(), "retain".to_string())
 }
 
-/// 同值连续段（Python `collect_repeated_value_runs` 行）。
+/// 同值连续段（`collect_repeated_value_runs` 行）。
 #[derive(Debug, Clone)]
 struct RepeatedRun {
     value: String,
     paths: Vec<PathBuf>,
 }
 
-/// Python `collect_repeated_value_runs`：按 `chapter_sort_key` 排序后收 ≥ min_run 的同值段。
+/// `collect_repeated_value_runs`：按 `chapter_sort_key` 排序后收 ≥ min_run 的同值段。
 fn collect_repeated_value_runs(rows: &[(PathBuf, &str)], min_run: usize) -> Vec<RepeatedRun> {
     let mut ordered: Vec<(PathBuf, &str)> = rows.to_vec();
     ordered.sort_by_key(|a| chapter_sort_key(&a.0));
@@ -504,7 +504,7 @@ pub struct TrendSnapshot {
     pub notes: Vec<String>,
 }
 
-/// Python `build_story_trend_snapshots`：章末标签连续段 × 色调/情绪同值段重叠。
+/// `build_story_trend_snapshots`：章末标签连续段 × 色调/情绪同值段重叠。
 #[must_use]
 pub fn build_story_trend_snapshots(
     analyses: &[(PathBuf, &Analysis)],
@@ -634,7 +634,7 @@ pub fn build_story_trend_snapshots(
     snapshots
 }
 
-/// Python `recommendation_note`（5 条固定文案）。
+/// `recommendation_note`（5 条固定文案）。
 fn recommendation_note(recommendation: &str) -> &str {
     match recommendation {
         "retain" => "当前章可保留主体结构，优先微调个别硬项，不要为了清零统计把文气磨平。",
@@ -650,7 +650,7 @@ fn recommendation_note(recommendation: &str) -> &str {
     }
 }
 
-/// Python `build_scorecard_report`：单章记分卡 markdown（逐字渲染）。
+/// `build_scorecard_report`：单章记分卡 markdown（逐字渲染）。
 pub fn build_scorecard_report(
     engine: &PlanEngine,
     labels: &EndingLabels,
@@ -763,13 +763,13 @@ pub fn build_scorecard_report(
         "- scene_blocks=`{}` dominant_role=`{}` dominance_ratio=`{}` switches=`{}`",
         scene_map.block_count,
         scene_map.dominant_role,
-        py_float_str(scene_map.dominance_ratio),
+        float_repr(scene_map.dominance_ratio),
         scene_map.switch_count
     ));
     lines.push(format!(
         "- dialogue_emotion=`{}` ratio=`{}` shifts=`{}`",
         dialogue_emotions.dominant_emotion,
-        py_float_str(dialogue_emotions.dominant_ratio),
+        float_repr(dialogue_emotions.dominant_ratio),
         dialogue_emotions.shift_count
     ));
     lines.push(format!(
@@ -780,19 +780,19 @@ pub fn build_scorecard_report(
             character_voice.dominant_speaker.as_str()
         },
         character_voice.speaker_count,
-        py_float_str(character_voice.coverage_ratio),
+        float_repr(character_voice.coverage_ratio),
         bool_str(character_voice.warn)
     ));
     lines.push(format!(
         "- tone=`{}` stable_ratio=`{}` tone_switches=`{}`",
         tone_profile.dominant_tone,
-        py_float_str(tone_profile.stable_ratio),
+        float_repr(tone_profile.stable_ratio),
         tone_profile.switch_count
     ));
     lines.push(format!(
         "- battle_sequences=`{}` result_ratio=`{}`",
         battle_profile.sequence_count,
-        py_float_str(battle_profile.result_ratio)
+        float_repr(battle_profile.result_ratio)
     ));
     lines.push(format!(
         "- viewpoint_anchor=`{}` switches=`{}` overlaps=`{}`",
@@ -998,7 +998,7 @@ pub fn build_scorecard_report(
     Ok(lines.join("\n") + "\n")
 }
 
-/// Python `build_story_summary`：story 级 SUMMARY.md（逐字渲染）。
+/// `build_story_summary`：story 级 SUMMARY.md（逐字渲染）。
 pub fn build_story_summary(
     story_dir: &Path,
     scorecards: &[(PathBuf, &Analysis)],
@@ -1129,7 +1129,7 @@ pub fn build_story_summary(
     lines.push("## Average Axis Scores".to_string());
     for (name, total) in axis_totals.entries() {
         let avg = round2(*total as f64 / ordered.len().max(1) as f64);
-        lines.push(format!("- `{name}` avg=`{}`", py_float_str(avg)));
+        lines.push(format!("- `{name}` avg=`{}`", float_repr(avg)));
     }
     lines.push(String::new());
 
@@ -1199,7 +1199,7 @@ pub fn build_story_summary(
     Ok(lines.join("\n") + "\n")
 }
 
-/// 对齐 Python `main`：收集章节 → 分析 → 一致性快照 → 按 story 写
+/// 收集章节 → 分析 → 一致性快照 → 按 story 写
 /// `scorecards/*.md` + `SUMMARY.md`。返回（退出码, 应打印路径序列）。
 pub fn run(opts: &ScorecardOptions) -> Result<(i32, Vec<PathBuf>)> {
     let files = collect_chapter_files(&opts.paths)?;
@@ -1235,7 +1235,7 @@ pub fn run(opts: &ScorecardOptions) -> Result<(i32, Vec<PathBuf>)> {
         snapshots.push((path.clone(), snapshot));
     }
 
-    // 按父目录分组（首现序，对齐 Python `defaultdict`），再按 story 目录字典序处理。
+    // 按父目录分组（首现序），再按 story 目录字典序处理。
     let mut groups: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (index, (path, _)) in analyses.iter().enumerate() {
         let parent = path

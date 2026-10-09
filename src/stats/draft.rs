@@ -1,5 +1,4 @@
-//! `stats.draft` 完整移植（对齐 Python `src/stats/draft.py`）：
-//! 章节级报告、滚动窗口合并报告与按目录分组的 SUMMARY，输出为镜像 markdown 树。
+//! `stats.draft`：章节级报告、滚动窗口合并报告与按目录分组的 SUMMARY，输出为镜像 markdown 树。
 //!
 //! - 章节/窗口分析全部走 `audit::draft` 的 `analyze_path`/`analyze_text`；
 //! - 语料学习：缺省开启（`corpus_paths_for_targets`），`--no-corpus-learning` 禁用；
@@ -20,11 +19,11 @@ use crate::config::{self, EndingLabels, TemplateRule, TrackedTerm};
 use crate::input::{resolve_inputs, write_text};
 use crate::rules::build_template_bank;
 
-/// 章节文件名匹配（对齐 `lib/paths.py` 的 `CHAPTER_RE = re.compile(r"ch(\d+)", IGNORECASE)`）。
+/// 章节文件名匹配（忽略大小写 `ch<数字>` 正则）。
 static CHAPTER_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("(?i)ch(\\d+)").expect("CHAPTER_RE 应可编译"));
 
-/// `stats.draft` 子命令参数（对齐 Python `parse_args`）。
+/// `stats.draft` 子命令参数。
 #[derive(Debug, Clone)]
 pub struct StatsDraftOptions {
     /// 位置参数：草稿文件或目录。
@@ -35,9 +34,9 @@ pub struct StatsDraftOptions {
     pub output: Option<PathBuf>,
     /// `--output-root`：生成 stats 的镜像树根（缺省时写回 `draft-stats/` 镜像树）。
     pub output_root: Option<PathBuf>,
-    /// 每条规则最多记录的样本行数（Python 默认 3）。
+    /// 每条规则最多记录的样本行数（默认 3）。
     pub sample_limit: usize,
-    /// 滚动章节窗口大小（Python 默认 `[2, 3]`）。
+    /// 滚动章节窗口大小（默认 `[2, 3]`）。
     pub window_sizes: Vec<usize>,
     /// `--no-corpus-learning`：禁用从既有卡片/计划/草稿学到的筛选器。
     pub no_corpus_learning: bool,
@@ -46,7 +45,7 @@ pub struct StatsDraftOptions {
 /// 章节分析结果对（`lib.analysis.analyze_files` 的移植）。
 pub type ChapterAnalysis = (PathBuf, Analysis);
 
-/// 章末标签展示名（缺省为 label 本身，对齐 Python `ENDING_LABEL_DISPLAY` 查表）。
+/// 章末标签展示名（缺省为 label 本身，查表）。
 pub fn ending_display(labels: &EndingLabels, label: &str) -> String {
     labels
         .display
@@ -54,7 +53,7 @@ pub fn ending_display(labels: &EndingLabels, label: &str) -> String {
         .cloned()
         .unwrap_or_else(|| label.to_string())
 }
-/// `lib.paths.chapter_sort_key`：章号优先，无章号排 9999（对齐 Python 元组键）。
+/// 章排序键：章号优先，无章号排 9999。
 #[must_use]
 pub fn chapter_sort_key(path: &Path) -> (i64, String) {
     let stem = path
@@ -106,7 +105,7 @@ pub fn collect_chapter_files(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     Ok(chapter_files)
 }
 
-/// 由 Python `Path.parts` 语义重组路径（`"/"` 组件还原为绝对根）。
+/// 由路径 components 重组路径（`"/"` 组件还原为绝对根）。
 pub fn path_from_parts(parts: &[String]) -> PathBuf {
     let mut out = PathBuf::new();
     for (i, part) in parts.iter().enumerate() {
@@ -122,7 +121,7 @@ pub fn path_from_parts(parts: &[String]) -> PathBuf {
 /// `stats/draft.stats_path_for`：镜像树报告路径。
 ///
 /// 有 `output_root` 时镜像到 `output_root/{novel}/draft-stats/...`；
-/// 缺省返回输入路径中 `drafts/` → `draft-stats/` 的替换（对齐 Python 默认行为）。
+/// 缺省返回输入路径中 `drafts/` → `draft-stats/` 的替换。
 pub fn stats_path_for(draft_path: &Path, output_root: Option<&Path>) -> Result<PathBuf> {
     let parts: Vec<String> = draft_path
         .components()
@@ -168,7 +167,7 @@ pub fn infer_ending_label(analysis: &Analysis, labels: &EndingLabels) -> String 
         .join(" ");
     let text = format!("{} {} {}", ending.tail_excerpt, flow_terms, image_terms);
 
-    // 对齐 Python：scores[label] = rules 词项 substring 命中和（赋值），
+    // scores[label] = rules 词项 substring 命中和（赋值），
     // 再对 imagery_coda / procedure_pressure 按词项数累加进同一 key（Counter 语义），
     // 最后 (-count, label) 稳定排序，并列判 mixed。
     let mut scores: std::collections::HashMap<String, usize> = labels
@@ -305,7 +304,7 @@ impl AnalysisEnv<'_> {
     }
 }
 
-/// 单文件章节报告（Python `build_single_reports` 移植）。
+/// 单文件章节报告。
 pub fn build_single_reports(
     env: &AnalysisEnv,
     files: &[PathBuf],
@@ -339,7 +338,7 @@ pub fn build_single_reports(
     Ok(written)
 }
 
-/// 滚动窗口合并报告（Python `build_window_report` 移植）。
+/// 滚动窗口合并报告。
 fn build_window_report(
     env: &AnalysisEnv,
     paths: &[PathBuf],
@@ -373,12 +372,12 @@ fn build_window_report(
     Ok((out_path, report, window_analysis))
 }
 
-/// Counter（首现序 + 计数，对齐 Python `Counter.most_common` 的稳定 tie-break）。
+/// Counter（首现序 + 计数；most_common 平手按首现序）。
 ///
-/// - `add`：新 key 记入首现序；计数累加（`Counter.__init__/+=`）。
-/// - `items`：**首现插入序** + 当前计数（等价 Python `counter.items()` 遍历序）。
+/// - `add`：新 key 记入首现序；计数累加。
+/// - `items`：**首现插入序** + 当前计数。
 /// - `most_common`/`most_common_all`：**只按 count 稳定降序**，并列保持首次出现序
-///   （Python `Counter.most_common` 语义，**不可**加 key 二次序）。
+///   （**不可**加 key 二次序）。
 /// - `get`/`count`：缺省 0；`is_empty`：无 key 即空（真值判断）。
 #[derive(Debug, Default)]
 pub struct Ctr {
@@ -423,13 +422,13 @@ impl Ctr {
     pub fn count(&self, key: &str) -> usize {
         self.map.get(key).copied().unwrap_or(0)
     }
-    /// 真值判断（Python `if counter:` 语义）。
+    /// 真值判断。
     pub fn is_empty(&self) -> bool {
         self.order.is_empty()
     }
 }
 
-/// 按父目录分组的 SUMMARY + 滚动窗口（Python `build_group_reports` 移植）。
+/// 按父目录分组的 SUMMARY + 滚动窗口。
 pub fn build_group_reports(
     env: &AnalysisEnv,
     files: &[PathBuf],
@@ -439,7 +438,7 @@ pub fn build_group_reports(
     labels: &EndingLabels,
 ) -> Result<Vec<PathBuf>> {
     let mut written: Vec<PathBuf> = Vec::new();
-    // 按父目录分组（首现序，对齐 Python dict.setdefault）
+    // 按父目录分组（首现序）
     let mut groups: Vec<(PathBuf, Vec<PathBuf>)> = Vec::new();
     for path in files {
         let parent = path
@@ -761,7 +760,7 @@ pub fn build_group_reports(
     Ok(written)
 }
 
-/// 对齐 Python `stats/draft.main`：收集章节、语料学习、写单文件/镜像/分组报告。
+/// 收集章节、语料学习、写单文件/镜像/分组报告。
 pub fn run(opts: &StatsDraftOptions) -> Result<i32> {
     if opts.output.is_some() && opts.output_root.is_some() {
         eprintln!("Use either --output or --output-root, not both.");

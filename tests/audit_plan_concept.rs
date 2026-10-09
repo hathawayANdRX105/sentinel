@@ -1,7 +1,6 @@
-//! `audit-plan` / `audit-concept` 集成测试：与 Python 生成的 expected 输出逐字节/深比较。
+//! `audit-plan` / `audit-concept` 集成测试：与 golden 基线逐字节/深比较。
 //!
-//! expected 文件由 `PYTHONPATH=../src python3 -m audit.plan|concept` 在 crate 根目录
-//! （相对路径 `tests/fixtures/...`）生成，故测试先 pin cwd 到 crate 根。
+//! 基线以相对输入路径（`tests/fixtures/...`）定稿，故测试先 pin cwd 到仓库根。
 
 use sentinel::audit::{concept, plan};
 use sentinel::config;
@@ -42,7 +41,7 @@ fn plan_per_file_markdown_report_bytes_match() {
     }
 }
 
-/// 目录目标 JSON 报告与 Python `--format json` 输出深度一致（含顺序与 source 字符串）；
+/// 目录目标 JSON 报告与 golden 基线深度一致（含顺序与 source 字符串）；
 /// `-i` 输入合并（仅输入、无位置参数）可用。
 #[test]
 fn plan_dir_json_reports_deep_equal() {

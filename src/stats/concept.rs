@@ -1,4 +1,4 @@
-//! `stats.concept`：概念卡镜像 markdown 统计报告（对应 Python `src/stats/concept.py`）。
+//! `stats.concept`：概念卡镜像 markdown 统计报告。
 //!
 //! 每张卡生成一份 `card-stats` 镜像树内的单文件报告，每个源目录生成 `SUMMARY.md`。
 
@@ -13,7 +13,7 @@ use crate::stats::draft::path_from_parts;
 
 /// `stats_path_for`：把路径中首个 `cards` 目录名替换为 `card-stats`（无 output_root 参数）。
 pub fn stats_path_for(card_path: &Path) -> Result<PathBuf> {
-    // 对应 Python `Path.parts`：components 逐个转字符串（根组件为 "/"）。
+    // 路径 components 逐个转字符串（根组件为 "/"）。
     let mut parts: Vec<String> = card_path
         .components()
         .map(|c| c.as_os_str().to_string_lossy().into_owned())
@@ -45,7 +45,7 @@ pub fn build_single_reports(files: &[PathBuf]) -> Result<Vec<Report>> {
         let warnings = concept_audit::audit_card(path)?;
         let out_path = stats_path_for(path)?;
         let report = concept_audit::format_report(path, &warnings);
-        // Python 侧不追加尾换行（与 plan 报告不同）。
+        // 不追加尾换行（与 plan 报告不同）。
         input::write_text(&out_path, &report)?;
         reports.push((path.clone(), warnings));
     }
@@ -54,7 +54,7 @@ pub fn build_single_reports(files: &[PathBuf]) -> Result<Vec<Report>> {
 
 pub fn build_directory_summaries(reports: &[Report]) -> Result<Vec<PathBuf>> {
     let mut written: Vec<PathBuf> = Vec::new();
-    // Python `grouped: dict[Path, list]`：键=卡文件父目录，插入序=首现序。
+    // 分组：键=卡文件父目录，插入序=首现序。
     let mut grouped: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (i, item) in reports.iter().enumerate() {
         let parent = item
@@ -144,7 +144,7 @@ pub fn build_directory_summaries(reports: &[Report]) -> Result<Vec<PathBuf>> {
             summary_lines.push("- 无".to_string());
         }
 
-        // Python 侧 SUMMARY 不追加尾换行。
+        // SUMMARY 不追加尾换行。
         let summary_path = stats_path_for(&source_dir.join("SUMMARY.md"))?;
         input::write_text(&summary_path, &summary_lines.join("\n"))?;
         written.push(summary_path);
@@ -153,7 +153,7 @@ pub fn build_directory_summaries(reports: &[Report]) -> Result<Vec<PathBuf>> {
     Ok(written)
 }
 
-/// `stats-concept` 全流程（对应 Python `stats/concept.py::main`），返回退出码。
+/// `stats-concept` 全流程，返回退出码。
 pub fn run(paths: &[PathBuf], include_templates: bool) -> Result<i32> {
     let files = collect_targets(paths, include_templates);
     if files.is_empty() {

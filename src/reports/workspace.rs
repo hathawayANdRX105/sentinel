@@ -1,10 +1,10 @@
-//! `reports.workspace` 完整移植（对齐 Python `src/reports/workspace.py`）：
-//! concept / plan / draft / consistency 四节 → 单份 AUDIT.md 工作区看板。
+//! `reports.workspace`：concept / plan / draft / consistency 四节 → 单份
+//! AUDIT.md 工作区看板。
 //!
-//! - 各节复用既有模块（stats、audit、reports、consistency）的已对齐逻辑；
-//!   本文件只做编排与看板渲染，渲染逐字对齐 Python。
-//! - draft 节的浮点均值走 `rules::round2`（banker's）+ `audit::draft::py_float_str`
-//!   （Python f-string 浮点语义），与 scorecard 的 avg 渲染一致。
+//! - 各节复用既有模块（stats、audit、reports、consistency）的既有逻辑；
+//!   本文件只做编排与看板渲染，渲染输出逐字节稳定。
+//! - draft 节的浮点均值走 `rules::round2`（banker's）+ `audit::draft::float_repr`
+//!   （浮点展示语义），与 scorecard 的 avg 渲染一致。
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use fancy_regex::Regex;
 use serde_json::Value;
 
-use crate::audit::draft::{py_float_str, Analysis, DraftContext};
+use crate::audit::draft::{float_repr, Analysis, DraftContext};
 use crate::audit::plan as plan_audit;
 use crate::audit::plan::PlanEngine;
 use crate::config::{self, EndingLabels};
@@ -35,17 +35,17 @@ use crate::stats::draft::{
 use crate::stats::{concept as concept_stats, plan as plan_stats, Ctr};
 use rusqlite::Connection;
 
-/// Python `PLAN_DIR_NAMES`。
+/// 计划目录名。
 const PLAN_DIR_NAMES: &[&str] = &["arc-plan", "story-plan", "chapter-plan"];
 
-/// Python `DRIFT_SAMPLE_LIMIT`。
+/// 漂移样本上限。
 const DRIFT_SAMPLE_LIMIT: usize = 6;
 
-/// Python `CHAPTER_ID_RE = re.compile(r"ch(\d+)", re.IGNORECASE)`。
+/// 章节 ID 正则（忽略大小写的 `ch<数字>`）。
 static CHAPTER_ID_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("(?i)ch(\\d+)").expect("CHAPTER_ID_RE 应可编译"));
 
-/// `reports-workspace` 子命令参数（对齐 Python `parse_args`）。
+/// `reports-workspace` 子命令参数。
 #[derive(Debug, Clone)]
 pub struct WorkspaceOptions {
     /// novel 目录（例如 novel1）。
@@ -56,7 +56,7 @@ pub struct WorkspaceOptions {
     pub window_sizes: Vec<usize>,
 }
 
-/// Python `main`：四节收集 + 看板渲染 + 写 AUDIT.md，stdout 仅打印 AUDIT.md 路径。
+/// 四节收集 + 看板渲染 + 写 AUDIT.md，stdout 仅打印 AUDIT.md 路径。
 pub fn run(opts: &WorkspaceOptions) -> Result<(i32, Vec<PathBuf>)> {
     let novel_dir = &opts.novel_dir;
     if !novel_dir.exists() {
@@ -83,10 +83,10 @@ pub fn run(opts: &WorkspaceOptions) -> Result<(i32, Vec<PathBuf>)> {
 }
 
 // ---------------------------------------------------------------------------
-// 小型共享工具（Python workspace.py 模块级函数）
+// 小型共享工具（模块级）
 // ---------------------------------------------------------------------------
 
-/// Python `summarize_counter(counter, limit)`：`name xN` 空格连排，空为「无」。
+/// `name xN` 空格连排摘要，空为「无」。
 fn summarize_counter(counter: &Ctr, limit: usize) -> String {
     let joined = counter
         .most_common(limit)
@@ -101,7 +101,7 @@ fn summarize_counter(counter: &Ctr, limit: usize) -> String {
     }
 }
 
-/// Python 模块级 `summarize_runs(labels, min_run=3, limit=4)`（workspace 本地版，
+/// 连续标签摘要（workspace 本地版，
 /// 与 `stats.draft.summarize_runs` 不同：不带展示名映射、带 ch 区间、排除弱标签）。
 fn summarize_runs_local(labels_in_order: &[String]) -> Vec<String> {
     if labels_in_order.is_empty() {
@@ -137,7 +137,7 @@ fn summarize_runs_local(labels_in_order: &[String]) -> Vec<String> {
     runs
 }
 
-/// Python `summarize_story_convergences(ending_signal_flow, tone_flow, emotion_flow)`。
+/// 结局信号/基调/情绪三流汇聚点摘要行。
 fn summarize_story_convergences(
     ending_signal_flow: &[String],
     tone_flow: &[String],
@@ -183,7 +183,7 @@ fn rel_posix(path: &Path, base: &Path) -> String {
     }
 }
 
-/// Python `chapter_order_from_path(path_text, novel_dir)`：`(order, chapter_name)`。
+/// 由路径解析章节序与章名：`(order, chapter_name)`。
 fn chapter_order_from_path(path_text: &str, novel_dir: &Path) -> (i64, String) {
     let path = Path::new(path_text);
     let (_doc_type, _arc, _story, chapter) = consistency::classify_document(path, novel_dir);
@@ -203,10 +203,10 @@ fn chapter_order_from_path(path_text: &str, novel_dir: &Path) -> (i64, String) {
 }
 
 // ---------------------------------------------------------------------------
-// consistency 节派生行（Python 模块级 builder）
+// consistency 节派生行（模块级 builder）
 // ---------------------------------------------------------------------------
 
-/// Python `build_story_trajectory_summary` 输出行。
+/// story 轨迹摘要行（`build_story_trajectory_summary` 输出）。
 #[derive(Debug, Clone)]
 pub struct TrajectorySummaryRow {
     pub story: String,
@@ -216,7 +216,7 @@ pub struct TrajectorySummaryRow {
     pub samples: Vec<String>,
 }
 
-/// Python `build_story_trajectory_details` 输出条目。
+/// story 轨迹明细条目（`build_story_trajectory_details` 输出）。
 #[derive(Debug, Clone)]
 pub struct TrajectoryDetailItem {
     pub title: String,
@@ -225,7 +225,7 @@ pub struct TrajectoryDetailItem {
     pub timeline: Vec<String>,
 }
 
-/// Python `build_story_trajectory_details` 输出行。
+/// story 轨迹明细行（`build_story_trajectory_details` 输出）。
 #[derive(Debug, Clone)]
 pub struct TrajectoryDetailRow {
     pub story: String,
@@ -254,7 +254,7 @@ pub struct NarrativeRow {
     pub details: Vec<String>,
 }
 
-/// Python `build_fact_timeline`：fact 证据按章聚合的 timeline 行。
+/// fact 证据按章聚合的 timeline 行。
 fn build_fact_timeline(
     conn: &Connection,
     novel_dir: &Path,
@@ -296,7 +296,7 @@ fn build_fact_timeline(
     Ok(timeline)
 }
 
-/// Python `build_story_trajectory_summary`（直接吃 typed 行，等价于其 dict 版）。
+/// story 轨迹摘要（直接吃 typed 行）。
 fn build_story_trajectory_summary(
     tension: &[TensionRow],
     goal: &[GoalTensionRow],
@@ -376,7 +376,7 @@ fn build_story_trajectory_summary(
         .collect()
 }
 
-/// Python `build_story_trajectory_details`。
+/// story 轨迹明细。
 fn build_story_trajectory_details(
     conn: &Connection,
     novel_dir: &Path,
@@ -486,7 +486,7 @@ fn build_story_trajectory_details(
         .collect())
 }
 
-/// Python `build_narrative_trajectory_rows(drafts, consistency)`。
+/// 叙事轨迹行（drafts + consistency 派生）。
 fn build_narrative_trajectory_rows(
     drafts: &DraftSection,
     consistency: &ConsistencySection,
@@ -624,7 +624,7 @@ fn build_narrative_trajectory_rows(
         .collect()
 }
 
-/// Python `build_relationship_pair_trajectories(novel_dir, pair_rows, limit_per_story=4)`。
+/// 关系对轨迹（每 story 上限 4 条）。
 fn build_relationship_pair_trajectories(
     novel_dir: &Path,
     pair_rows: &[PairRow],
@@ -684,7 +684,7 @@ fn build_relationship_pair_trajectories(
     results
 }
 
-/// Python `infer_template_deposition_target`。
+/// 模板沉淀目标推断。
 fn infer_template_deposition_target(candidate_type: &str, candidate_name: &str) -> &'static str {
     if matches!(
         candidate_type,
@@ -723,10 +723,10 @@ fn infer_template_deposition_target(candidate_type: &str, candidate_name: &str) 
 }
 
 // ---------------------------------------------------------------------------
-// 各节数据结构与收集（Python `collect_*_section`）
+// 各节数据结构与收集（`collect_*_section`）
 // ---------------------------------------------------------------------------
 
-/// Python concept 节 `categories` 条目。
+/// concept 节 `categories` 条目。
 #[derive(Debug, Clone)]
 pub struct ConceptCategory {
     pub category: String,
@@ -737,7 +737,7 @@ pub struct ConceptCategory {
     pub top_kinds: String,
 }
 
-/// Python concept 节 dict。
+/// concept 节 dict。
 #[derive(Debug, Clone)]
 pub struct ConceptSection {
     pub exists: bool,
@@ -747,7 +747,7 @@ pub struct ConceptSection {
     pub categories: Vec<ConceptCategory>,
 }
 
-/// Python plan 节 `plan_types` 条目。
+/// plan 节 `plan_types` 条目。
 #[derive(Debug, Clone)]
 pub struct PlanTypeInfo {
     pub plan_type: String,
@@ -758,7 +758,7 @@ pub struct PlanTypeInfo {
     pub top_kinds: String,
 }
 
-/// Python plan 节 `story_trends` 条目。
+/// plan 节 `story_trends` 条目。
 #[derive(Debug, Clone)]
 pub struct StoryTrend {
     pub story: String,
@@ -768,7 +768,7 @@ pub struct StoryTrend {
     pub ending_runs: Vec<String>,
 }
 
-/// Python plan 节 dict。
+/// plan 节 dict。
 #[derive(Debug, Clone)]
 pub struct PlanSection {
     pub exists: bool,
@@ -781,7 +781,7 @@ pub struct PlanSection {
     pub story_trends: Vec<StoryTrend>,
 }
 
-/// Python draft 节 `stories` 条目。
+/// draft 节 `stories` 条目。
 #[derive(Debug, Clone)]
 pub struct DraftStory {
     pub story: String,
@@ -815,7 +815,7 @@ pub struct DraftStory {
     pub template_backlog_summary_path: PathBuf,
 }
 
-/// Python draft 节 `alignment_mismatches` 条目。
+/// draft 节 `alignment_mismatches` 条目。
 #[derive(Debug, Clone)]
 pub struct DraftDriftSample {
     pub draft: String,
@@ -824,7 +824,7 @@ pub struct DraftDriftSample {
     pub score: usize,
 }
 
-/// Python draft 节 dict。
+/// draft 节 dict。
 #[derive(Debug, Clone)]
 pub struct DraftSection {
     pub exists: bool,
@@ -842,7 +842,7 @@ pub struct DraftSection {
     pub alignment_mismatches: Vec<DraftDriftSample>,
 }
 
-/// Python consistency 节 dict。
+/// consistency 节 dict。
 #[derive(Debug, Clone)]
 pub struct ConsistencySection {
     pub db_path: PathBuf,
@@ -863,7 +863,7 @@ pub struct ConsistencySection {
     pub relationship_pair_trajectories: Vec<PairTrajectoryRow>,
 }
 
-/// Python `collect_concept_section`。
+/// 收集 concept 节。
 fn collect_concept_section(novel_dir: &Path) -> Result<ConceptSection> {
     let cards_dir = novel_dir.join("concept").join("cards");
     if !cards_dir.exists() {
@@ -941,7 +941,7 @@ fn collect_concept_section(novel_dir: &Path) -> Result<ConceptSection> {
     })
 }
 
-/// Python `collect_plan_section`。
+/// 收集 plan 节。
 fn collect_plan_section(novel_dir: &Path, engine: &PlanEngine) -> Result<PlanSection> {
     let plan_dirs: Vec<PathBuf> = PLAN_DIR_NAMES
         .iter()
@@ -1138,7 +1138,7 @@ fn collect_plan_section(novel_dir: &Path, engine: &PlanEngine) -> Result<PlanSec
     })
 }
 
-/// Python `collect_draft_section`（复用它已对齐的 draft-stats / scorecard / catalog /
+/// 收集 draft 节（复用 draft-stats / scorecard / catalog /
 /// alignment / backlog / kit 模块，本函数只做等价编排与派生字段计算）。
 fn collect_draft_section(
     novel_dir: &Path,
@@ -1209,7 +1209,7 @@ fn collect_draft_section(
         )?;
     }
 
-    // grouped：story_dir -> 章分析（对齐 Python `grouped[path.parent]`）。
+    // grouped：story_dir -> 章分析（按父目录分组）。
     let mut grouped: BTreeMap<PathBuf, Vec<&(PathBuf, Analysis)>> = BTreeMap::new();
     for pair in &analyses {
         let parent = pair
@@ -1485,7 +1485,7 @@ fn collect_draft_section(
         let review_kit_summary_path = kit::review_kit_path_for(first_path)?;
         let template_backlog_summary_path = backlog::backlog_path_for(first_path)?;
 
-        // Python avg_axis：按轴名排序 `{name} {round(total/n,2)}`（banker's + 浮点 repr）。
+        // avg_axis：按轴名排序 `{name} {round(total/n,2)}`（banker's + 浮点展示）。
         let avg_axis = {
             let mut entries = axis_totals.items();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
@@ -1493,14 +1493,13 @@ fn collect_draft_section(
             entries
                 .iter()
                 .map(|(name, total)| {
-                    format!("{name} {}", py_float_str(round2(*total as f64 / n as f64)))
+                    format!("{name} {}", float_repr(round2(*total as f64 / n as f64)))
                 })
                 .collect::<Vec<_>>()
                 .join(", ")
         };
 
-        // Python ending_signal_summary：
-        // Counter({ending_label_display(name): count for name, count in ending_signal_counter.items()})
+        // ending_signal_summary：按展示名计数（计数 + 首现序）。
         // —— 同显示名多 raw 时 dict 赋值「同位更新值、末次 raw 胜」，再 most_common(4) 空格连排。
         let ending_signal_summary = {
             let mut entries: Vec<(String, usize)> = Vec::new();
@@ -1665,7 +1664,7 @@ fn ctr_sorted_join(counter: &Ctr) -> String {
     }
 }
 
-/// Python `build_template_research_report`：写 `draft-stats/TEMPLATE_RESEARCH.md`。
+/// 写 `draft-stats/TEMPLATE_RESEARCH.md`。
 fn build_template_research_report(
     novel_dir: &Path,
     grouped: &BTreeMap<PathBuf, Vec<&(PathBuf, Analysis)>>,
@@ -1729,7 +1728,7 @@ fn build_template_research_report(
     lines.join("\n") + "\n"
 }
 
-/// Python `collect_consistency_section`。
+/// 收集 consistency 节。
 fn collect_consistency_section(novel_dir: &Path) -> Result<ConsistencySection> {
     let db_path = novel_dir
         .join("research")
@@ -1781,7 +1780,7 @@ fn collect_consistency_section(novel_dir: &Path) -> Result<ConsistencySection> {
     })
 }
 
-/// Python f-string 标量渲染（catalog JSON 值 → str）：int 十进制 / str 原样 / None → "None"。
+/// 标量渲染（catalog JSON 值 → str）：int 十进制 / str 原样 / None → "None"。
 fn json_scalar(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
@@ -1792,7 +1791,7 @@ fn json_scalar(v: &Value) -> String {
     }
 }
 
-/// Python `build_dashboard`：渲染单份 AUDIT.md 看板（逐行对齐）。
+/// 渲染单份 AUDIT.md 看板（输出逐字节稳定）。
 fn build_dashboard(
     novel_dir: &Path,
     concept: &ConceptSection,

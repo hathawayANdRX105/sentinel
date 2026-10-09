@@ -1,6 +1,6 @@
-//! `stats-plan` / `stats-concept` 集成测试：与 Python 生成的基线逐字节对照。
+//! `stats-plan` / `stats-concept` 集成测试：与 golden 基线逐字节对照。
 //!
-//! 基线由 `PYTHONPATH=src python3 -m stats.plan|concept`（同参数、同输出布局）生成后入库
+//! 基线由参考实现（同参数、同输出布局）生成后入库
 //! `tests/fixtures/expected/stats-*`。单文件报告与 SUMMARY 只内嵌 `path.name`，不含输入
 //! 全路径，故 Rust 输出到临时目录后可直接按相对布局对照。
 
@@ -71,7 +71,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 }
 
 /// stats-plan 目录轮：`tests/fixtures/plan-novel` 整树 + `--output-root`，
-/// 镜像 `*-stats` 树（含各目录 SUMMARY.md）与 Python 基线逐字节一致。
+/// 镜像 `*-stats` 树（含各目录 SUMMARY.md）与 golden 基线逐字节一致。
 #[test]
 fn stats_plan_dir_mirror_bytes_match() {
     pin_cwd();
@@ -110,7 +110,7 @@ fn stats_plan_single_output_bytes_match() {
     assert_eq!(got, want, "single-file report differs");
 }
 
-/// 参数面护栏：`-o`/`--output-root` 互斥、`-o` 多文件、空输入，错误信息与 Python 文案一致。
+/// 参数面护栏：`-o`/`--output-root` 互斥、`-o` 多文件、空输入，错误信息与参考实现文案一致。
 #[test]
 fn stats_plan_cli_guardrails() {
     pin_cwd();
@@ -148,7 +148,7 @@ fn stats_plan_cli_guardrails() {
     );
 }
 
-/// stats-concept 目录轮（默认排除模板）：`card-stats` 镜像树与 Python 基线逐字节一致。
+/// stats-concept 目录轮（默认排除模板）：`card-stats` 镜像树与 golden 基线逐字节一致。
 ///
 /// 报告内嵌输入相对路径，故两侧必须用同一相对输入 `tests/fixtures/concept/cards`
 /// （cwd=crate 根）；生成的 `card-stats` 属于对照产物，结束前清场。
@@ -165,7 +165,7 @@ fn stats_concept_dir_bytes_match() {
 }
 
 /// stats-concept `--include-templates` 轮：模板卡与 `_templates` 目录 SUMMARY 一并生成，
-/// 与 Python 基线逐字节一致。
+/// 与 golden 基线逐字节一致。
 #[test]
 fn stats_concept_templates_bytes_match() {
     pin_cwd();
@@ -178,7 +178,7 @@ fn stats_concept_templates_bytes_match() {
     fs::remove_dir_all("tests/fixtures/concept-tpl/card-stats").unwrap();
 }
 
-/// 概念卡输入树不在 `cards` 目录下时，错误信息与 Python 文案一致。
+/// 概念卡输入树不在 `cards` 目录下时，错误信息与参考实现文案一致。
 #[test]
 fn stats_concept_rejects_non_cards_tree() {
     pin_cwd();
@@ -235,7 +235,7 @@ fn summarize_runs_semantics() {
     assert!(plan::summarize_runs(&[], 3, 6).is_empty());
 }
 
-/// `output_root=None` 分支：镜像 `*-stats` 树写进输入树（Python 默认行为），
+/// `output_root=None` 分支：镜像 `*-stats` 树写进输入树（缺省行为），
 /// N3 子树与 `--output-root` 轮基线逐字节一致。
 #[test]
 fn stats_plan_mirror_without_output_root() {

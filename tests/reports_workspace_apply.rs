@@ -1,15 +1,12 @@
-//! `reports-workspace` + `tools-apply` 集成测试：与 Python 生成的基线
+//! `reports-workspace` + `tools-apply` 集成测试：与 golden 基线
 //! （`tests/fixtures/expected/reports-workspace-apply/*`）逐字节对照。
 //!
-//! 基线由 Python 侧（`PYTHONPATH=../src`、cwd 为 `rust/`）生成：
-//! - workspace 轮：先 `python3 -m consistency build <fixture>` 建 db，再
-//!   `python3 -m reports.workspace <fixture> [flags]`；输入用相对路径
-//!   `tests/fixtures/...`，生成树内嵌该前缀，测试侧把标记 `tests/fixtures`
-//!   替换为临时根（与 reports-catalog/backlog/kit 测试同一约定）。
-//! - apply 轮：Python 侧把 `src/`+`configs/` 拷入 tempdir 运行（其
-//!   `DEFAULT_RULES_PATH` 从 `src/lib/rules.py` 位置解析），使 `--apply`
-//!   只写 tempdir 副本；仓内 `configs/rules/review.yaml` 全程零触碰。
-//!   Rust 侧用 `SENTINEL_RULES_YAML` 环境变量指向 tempdir 副本。
+//! 基线轮次约定：
+//! - workspace 轮：先建 fixture 的 consistency db，再跑 `reports-workspace`；
+//!   输入用相对路径 `tests/fixtures/...`，生成树内嵌该前缀，测试侧把标记
+//!   `tests/fixtures` 替换为临时根（与 reports-catalog/backlog/kit 测试同一约定）。
+//! - apply 轮：`SENTINEL_RULES_YAML` 环境变量指向 tempdir 副本，使 `--apply`
+//!   只写副本；仓内 `configs/rules/review.yaml` 全程零触碰。
 //!
 //! `research/consistency/*.sqlite3` 是构建产物（FTS5 影子表编码随 SQLite
 //! 实现漂移，consistency 测试已用 dump+查询基线验证语义等价），故 tree

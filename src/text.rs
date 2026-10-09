@@ -1,6 +1,6 @@
 //! 文本基础工具：句子/段落拆分、字数统计、引用比例。
 //!
-//! 行为对齐 Python 版 `audit/draft.py` 的 `split_sentences`、
+//! 拆分/统计函数：`split_sentences`、
 //! `split_sentence_infos`、`split_paragraph_infos`、`prose_char_count`、
 //! `quote_ratio`。句子拆分按行执行，并跳过 Markdown 噪音行。
 
@@ -17,7 +17,7 @@ pub const QUOTE_LINE_PATTERN: &str = r#"^\s*[“"【].*"#;
 /// 句首可剥离的标点集合（`LEADING_PUNCT`）。
 pub const LEADING_PUNCT: &str = "“”\"'【】《》〈〉（）()[]「」『』，,：:；;、 ";
 
-/// 句子信息，对应 Python `SentenceInfo`。
+/// 句子信息。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SentenceInfo {
     /// 句子序号，从 1 开始。
@@ -30,7 +30,7 @@ pub struct SentenceInfo {
     pub chars: usize,
 }
 
-/// 段落信息，对应 Python `ParagraphInfo`。
+/// 段落信息。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParagraphInfo {
     /// 段落序号，从 1 开始。

@@ -1,4 +1,4 @@
-//! `stats.plan`：arc/story/chapter plan 的镜像 markdown 统计报告（对应 Python `src/stats/plan.py`）。
+//! `stats.plan`：arc/story/chapter plan 的镜像 markdown 统计报告。
 //!
 //! 每个 plan 文件生成一份镜像 `*-stats` 树内的单文件报告，每个源目录生成
 //! `SUMMARY.md`（文件清单、优先处理、告警类型分布、功能分布/趋势、重复场面功能、角色功能信号）。
@@ -13,7 +13,7 @@ use crate::config;
 use crate::input;
 use crate::stats::draft::path_from_parts;
 
-/// 计划目录名（对应 Python `PLAN_DIRS`）。
+/// 计划目录名。
 const PLAN_DIRS: [&str; 3] = ["arc-plan", "story-plan", "chapter-plan"];
 
 /// `summarize_runs`：把连续同标签段（长度 ≥ `min_run`）压成字符串；
@@ -53,7 +53,7 @@ pub fn summarize_runs(labels: &[String], min_run: u32, limit: usize) -> Vec<Stri
 /// `stats_path_for`：把路径中首个计划目录名替换为 `*-stats`；
 /// 有 `output_root` 时镜像为 `output_root/<小说目录名>/...`（首层计划目录直接落在根下）。
 pub fn stats_path_for(plan_path: &Path, output_root: Option<&Path>) -> Result<PathBuf> {
-    // 对应 Python `Path.parts`：components 逐个转字符串（根组件为 "/"）。
+    // 路径 components 逐个转字符串（根组件为 "/"）。
     let parts: Vec<String> = plan_path
         .components()
         .map(|c| c.as_os_str().to_string_lossy().into_owned())
@@ -117,7 +117,7 @@ pub fn build_directory_summaries(
     output_root: Option<&Path>,
 ) -> Result<Vec<PathBuf>> {
     let mut written: Vec<PathBuf> = Vec::new();
-    // Python `grouped: dict[Path, list]`：键=文件父目录，插入序=首现序。
+    // 分组：键=文件父目录，插入序=首现序。
     let mut grouped: Vec<(PathBuf, Vec<usize>)> = Vec::new();
     for (i, item) in reports.iter().enumerate() {
         let parent = item
@@ -342,7 +342,7 @@ pub fn build_directory_summaries(
     Ok(written)
 }
 
-/// `stats-plan` 全流程（对应 Python `stats/plan.py::main`），返回退出码。
+/// `stats-plan` 全流程，返回退出码。
 ///
 /// `output` 与 `output_root` 互斥；`output` 仅在恰好收集到一个 plan 文件时可用。
 pub fn run(

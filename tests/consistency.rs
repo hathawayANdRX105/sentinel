@@ -1,5 +1,4 @@
-//! consistency 模块字节级对齐测试：基线由 Python `python3 -m consistency ...`
-//! （cwd=rust/，PYTHONPATH=../src）生成于 `tests/fixtures/consistency/expected/`。
+//! consistency 模块字节级对照测试：基线在 `tests/fixtures/consistency/expected/`。
 //! 比对前将 fixture novel 目录的绝对前缀归一为 `{{NOVEL}}`（feedback-add 的
 //! stdout/JSONL 路径为绝对路径，其余子命令输出均为相对路径）。
 
@@ -51,12 +50,12 @@ fn build_queries_and_feedback_parity() {
     let _ = fs::remove_file(&db);
     let _ = fs::remove_file(&jsonl);
 
-    // 1) build：stdout 与 Python 基线逐字节一致。
+    // 1) build：stdout 与 golden 基线逐字节一致。
     let o = run(&["consistency", "build", NOVEL]);
     assert!(o.status.success(), "build failed: {o:?}");
     assert_eq!(stdout_of(&o), exp("build.txt"), "build stdout");
 
-    // 2) 查询子命令：逐字节 stdout 基线（d.path 相对路径，cwd=rust/）。
+    // 2) 查询子命令：逐字节 stdout 基线（d.path 为相对路径）。
     for (cmd, extra, baseline) in [
         ("search", &["信号枪"] as &[&str], "search.txt"),
         ("entity", &["陆沉"], "entity.txt"),

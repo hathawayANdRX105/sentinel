@@ -1,11 +1,11 @@
 //! Sentinel 小说审查工具（Rust 重写）——CLI 入口。
 //!
 //! 子命令：`rules`（配置校验统计）、`audit-draft`（草稿全量分析；
-//! `--format json` 与 Python `src/audit/draft.py` 对齐，text/markdown 渲染字节级移植）、
+//! `--format json` 输出遵循固定 JSON 契约，text/markdown 渲染逐字节稳定）、
 //! `audit-plan` / `audit-concept`（大纲与概念卡审查）、
 //! `stats-draft`（章节/滚动窗口镜像统计树）与 `stats-plan` / `stats-concept`
-//! （镜像 markdown 统计树，与 Python `src/stats/*` 对齐）、
-//! `consistency`（SQLite/FTS5 一致性索引与 13 个子命令，对应 Python `consistency` 模块）。
+//! （镜像 markdown 统计树）、
+//! `consistency`（SQLite/FTS5 一致性索引与 13 个子命令）。
 
 use std::path::PathBuf;
 use std::process;
@@ -41,7 +41,7 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         rules: Option<PathBuf>,
     },
-    /// 分析草稿：全量指标、场面/对白/语料学习（`--format json` 与 Python 对齐）
+    /// 分析草稿：全量指标、场面/对白/语料学习（`--format json` 输出遵循固定 JSON 契约）
     AuditDraft {
         /// 草稿文件或目录（多文件输出 JSON 数组）
         #[arg(value_name = "PATH")]
@@ -55,7 +55,7 @@ enum Command {
         /// 有警告时以退出码 1 结束
         #[arg(long)]
         fail_on_warn: bool,
-        /// 报告输出格式（三种格式均与 Python 字节级对齐）
+        /// 报告输出格式（三种格式输出逐字节稳定）
         #[arg(long, value_enum, default_value_t = ReportFormat::Text)]
         format: ReportFormat,
         /// 输出文件（json）
@@ -95,7 +95,7 @@ enum Command {
         #[arg(long)]
         include_templates: bool,
     },
-    /// 计划镜像统计：逐文件 *-stats 报告 + 逐目录 SUMMARY.md（对应 Python `stats.plan`）
+    /// 计划镜像统计：逐文件 *-stats 报告 + 逐目录 SUMMARY.md
     StatsPlan {
         /// Plan 文件或目录
         #[arg(value_name = "PATH")]
@@ -110,7 +110,7 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         output_root: Option<PathBuf>,
     },
-    /// 概念卡镜像统计：card-stats 树 + 逐目录 SUMMARY.md（对应 Python `stats.concept`）
+    /// 概念卡镜像统计：card-stats 树 + 逐目录 SUMMARY.md
     StatsConcept {
         /// 概念卡文件或目录（必填）
         #[arg(required = true, value_name = "PATH")]
@@ -119,7 +119,7 @@ enum Command {
         #[arg(long)]
         include_templates: bool,
     },
-    /// 章节镜像统计：章节报告 + 滚动窗口合并 + 逐目录 SUMMARY（对应 Python `stats.draft`）
+    /// 章节镜像统计：章节报告 + 滚动窗口合并 + 逐目录 SUMMARY
     StatsDraft {
         /// 草稿文件或目录
         #[arg(value_name = "PATH")]
@@ -143,7 +143,7 @@ enum Command {
         #[arg(long)]
         no_corpus_learning: bool,
     },
-    /// 草稿章节评审记分卡：scorecards/*.md + 逐 story SUMMARY.md（对应 Python `reports.scorecard`）
+    /// 草稿章节评审记分卡：scorecards/*.md + 逐 story SUMMARY.md
     ReportsScorecard {
         /// 草稿章节文件或目录
         #[arg(required = true, value_name = "PATH")]
@@ -152,7 +152,7 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         sample_limit: usize,
     },
-    /// 草稿章节评审学习日志：learning/*.md + 逐 story SUMMARY.md（对应 Python `reports.learning`）
+    /// 草稿章节评审学习日志：learning/*.md + 逐 story SUMMARY.md
     ReportsLearning {
         /// 草稿章节文件或目录
         #[arg(required = true, value_name = "PATH")]
@@ -161,7 +161,7 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         sample_limit: usize,
     },
-    /// 研究导向章节句子画像：profiles/*.md + 逐 story SUMMARY.md（对应 Python `reports.profiles`）
+    /// 研究导向章节句子画像：profiles/*.md + 逐 story SUMMARY.md
     ReportsProfiles {
         /// 草稿章节文件或目录
         #[arg(required = true, value_name = "PATH")]
@@ -173,13 +173,13 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         output_root: Option<PathBuf>,
     },
-    /// 跨 Story 模板/词项候选目录：draft-stats/template-catalog/{SUMMARY.md,CATALOG.json}（对应 Python `reports.catalog`）
+    /// 跨 Story 模板/词项候选目录：draft-stats/template-catalog/{SUMMARY.md,CATALOG.json}
     ReportsCatalog {
         /// novel 目录、draft 目录或草稿章节文件
         #[arg(required = true, value_name = "PATH")]
         paths: Vec<PathBuf>,
     },
-    /// 跨章模板积压：template-backlog/{SUMMARY.md,CANDIDATES.json}（对应 Python `reports.backlog`）
+    /// 跨章模板积压：template-backlog/{SUMMARY.md,CANDIDATES.json}
     ReportsBacklog {
         /// 草稿章节文件或目录
         #[arg(required = true, value_name = "PATH")]
@@ -188,7 +188,7 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         sample_limit: usize,
     },
-    /// 故事级评审套件：单章三类报告 + story 级 SUMMARY + review-kit/SUMMARY.md（对应 Python `reports.kit`）
+    /// 故事级评审套件：单章三类报告 + story 级 SUMMARY + review-kit/SUMMARY.md
     ReportsKit {
         /// 草稿章节文件或目录
         #[arg(required = true, value_name = "PATH")]
@@ -197,12 +197,12 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         sample_limit: usize,
     },
-    /// 一致性索引：SQLite/FTS5 构建与查询（对应 Python `consistency` 模块）
+    /// 一致性索引：SQLite/FTS5 构建与查询
     Consistency {
         #[command(subcommand)]
         cmd: consistency::ConsistencyCmd,
     },
-    /// 整工作区看板：concept/plan/draft/consistency 四节 → 单份 AUDIT.md（对应 Python `reports.workspace`）
+    /// 整工作区看板：concept/plan/draft/consistency 四节 → 单份 AUDIT.md
     ReportsWorkspace {
         /// novel 目录（例如 novel1）
         #[arg(required = true, value_name = "NOVEL_DIR")]
@@ -214,7 +214,7 @@ enum Command {
         #[arg(long, value_name = "SIZE", num_args = 0..)]
         window_sizes: Option<Vec<usize>>,
     },
-    /// 模板候选回写：dry-run 预览或写回 review.yaml（对应 Python `tools.apply`）
+    /// 模板候选回写：dry-run 预览或写回 review.yaml
     ToolsApply {
         /// 模板目录 CATALOG.json 路径
         #[arg(required = true, value_name = "CATALOG")]
@@ -226,7 +226,7 @@ enum Command {
         #[arg(long)]
         apply: bool,
     },
-    /// 对比两份 analysis JSON，输出 Markdown 指标差异表（对应 Python `study.compare`）
+    /// 对比两份 analysis JSON，输出 Markdown 指标差异表
     StudyCompare {
         /// 基线 analysis JSON
         #[arg(required = true, value_name = "BASELINE")]
@@ -235,7 +235,7 @@ enum Command {
         #[arg(required = true, value_name = "APPLIED")]
         applied: PathBuf,
     },
-    /// 视角切分候选检测：逐段密度不变量 + 尾组（对应 Python `study.pov`）
+    /// 视角切分候选检测：逐段密度不变量 + 尾组
     StudyPov {
         /// 章节 Markdown 文件
         #[arg(required = true, value_name = "CHAPTER")]
