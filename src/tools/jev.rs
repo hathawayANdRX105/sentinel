@@ -24,7 +24,7 @@
 //! `{model, state, questions}`，响应 `{answers, usage, model}`；
 //! `noul` 问题形如 `{type:"noul", instructions, criteria:{true,false}}`。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Map, Value};
@@ -73,6 +73,8 @@ struct Candidate {
     text: String,
     source: String,
     label: String,
+    /// 命中样本对应的规则说明（review.yaml 的 note 字段）。
+    note: String,
 }
 
 /// 一个已判定句子。
@@ -81,6 +83,8 @@ struct Ranked {
     text: String,
     source: String,
     label: String,
+    /// 命中样本对应的规则说明（review.yaml 的 note 字段）。
+    note: String,
     probability: f64,
     rewrite: Option<String>,
     /// 改写后经 jev 判定的「AI 腔概率」（`--verify` 时）。
@@ -197,8 +201,47 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
         std::fs::write(output_path, rewritten)
             .with_context(|| format!("写出改写后全文失败: {}", output_path.display()))?;
         println!("\n改写后全文已写出：{}", output_path.display());
+
+        // 反向红线复检：原稿 vs 改写后草稿的规则告警对比。
+        if opts.verify {
+            match redline_check(draft_path, output_path) {
+                Ok((ow, oh, rw, rh)) => {
+                    println!(
+                        "\n## 红线复检\n\n- 原稿：warn_sections={ow}, hard_flags={oh}\n- 改写后：warn_sections={rw}, hard_flags={rh}\n- 变化：warn_sections {:+} / hard_flags {:+}\n",
+                        rw as i64 - ow as i64,
+                        rh as i64 - oh as i64
+                    );
+                }
+                Err(e) => eprintln!("红线复检失败：{e:#}"),
+            }
+        }
     }
     Ok(0)
+}
+
+/// 反向红线复检：对原稿与改写后草稿各跑一次 `audit-draft` 分析，
+/// 返回 `(原稿 warn_sections, 原稿 hard_flags, 改写后 warn_sections, 改写后 hard_flags)`。
+fn redline_check(draft_path: &Path, rewritten_path: &Path) -> Result<(usize, usize, usize, usize)> {
+    let rules = crate::config::load_rules(&crate::config::default_rules_path())?;
+    let ctx = crate::audit::draft::DraftContext::new(rules)?;
+    let template_bank = crate::rules::build_template_bank(ctx.draft_rules());
+    let term_bank = ctx.draft_rules().tracked_terms.clone();
+    let orig =
+        crate::audit::draft::analyze_path(&ctx, draft_path, &template_bank, &term_bank, None, 100)?;
+    let rewritten = crate::audit::draft::analyze_path(
+        &ctx,
+        rewritten_path,
+        &template_bank,
+        &term_bank,
+        None,
+        100,
+    )?;
+    Ok((
+        orig.summary.warn_sections,
+        orig.hard_flags.len(),
+        rewritten.summary.warn_sections,
+        rewritten.hard_flags.len(),
+    ))
 }
 
 /// 递归收集文本候选：默认只收集规则/分析**命中样本**（路径落在
@@ -282,12 +325,18 @@ fn push_candidate(
             .find_map(|k| map.get(*k).and_then(Value::as_str))
             .unwrap_or("")
             .to_string();
+        let note = map
+            .get("note")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let truncated = truncate_chars(text, MAX_ITEM_CHARS);
         out.push(Candidate {
             id: out.len(),
             text: truncated,
             source: path.to_string(),
             label,
+            note,
         });
     }
 }
@@ -376,6 +425,7 @@ fn ask_jev_noul(
             text: c.text.clone(),
             source: c.source.clone(),
             label: c.label.clone(),
+            note: c.note.clone(),
             probability: noul,
             rewrite: None,
             ai_prob_after: None,
@@ -395,15 +445,16 @@ fn rewrite_sentence(base_url: &str, api_key: &str, model: &str, ranked: &Ranked)
     let system = "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
 约束：只改表达，不改事实——人名、数字、引语、关键情节不得变动；\
 不要添加原文没有的信息；只输出改写后的文本，不要解释。";
+    let diagnosis = if !ranked.note.is_empty() {
+        ranked.note.as_str()
+    } else if !ranked.label.is_empty() {
+        ranked.label.as_str()
+    } else {
+        "未标注"
+    };
     let user = format!(
-        "原文（AI 腔概率 {:.2}，诊断：{}）：\n{}\n\n请把上面这段话改写得像人写的。",
-        ranked.probability,
-        if ranked.label.is_empty() {
-            "未标注"
-        } else {
-            &ranked.label
-        },
-        ranked.text
+        "原文（AI 腔概率 {:.2}，问题：{}）：\n{}\n\n请针对上述问题把这段话改写得像人写的。",
+        ranked.probability, diagnosis, ranked.text
     );
     let body = json!({
         "model": model,

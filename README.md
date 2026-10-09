@@ -77,7 +77,10 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 `agnes-3.0-flash`）逐句改写；`--verify` 用 `jev_compare` 校验改写前后
 语义一致（不一致拒绝改写），并给出人味评分；`--all-sentences` 把候选
 扩展到全文句子（不限于规则命中样本）；`--draft` + `--output-draft`
-生成改写后全文。这是 P0/P1 验证原型：sentinel 核心规则层零改动，
+生成改写后全文。改写 prompt 会注入命中规则的具体说明（review.yaml 的
+`note`），让改写更有针对性；`--verify` 下还会对原稿与改写后草稿各跑一次
+`audit-draft`，输出**红线复检**（warn_sections / hard_flags 对比），验证
+AI 腔是否真的下降。这是 P0/P1 验证原型：sentinel 核心规则层零改动，
 Jev 判断与生成模型都是可选外部层。
 
 ```bash
@@ -102,7 +105,6 @@ FERRITE_API_KEY=sk-... \
 cargo run --bin sentinel -- jev-review /tmp/ch01.json \
   --all-sentences --top 100 --rewrite --verify \
   --draft path/to/ch01.md --output-draft /tmp/ch01-rewritten.md
-```
 ```
 
 Jev 环境变量：
