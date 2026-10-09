@@ -1505,20 +1505,20 @@
     "learned_filters": [],
     "corpus_profile": {
       "enabled": true,
-      "source_count": 3,
-      "chars": 756,
-      "draft_chars": 705,
+      "source_count": 1,
+      "chars": 51,
+      "draft_chars": 51,
       "learned_terms": [],
       "learned_style_phrases": [],
       "learned_sentence_leads": [],
       "learned_aa_bb_shapes": [],
       "sentence_length_baseline": {
-        "sentence_count": 82,
-        "p10_chars": 3,
-        "p25_chars": 4,
-        "median_chars": 6,
-        "avg_chars": 7.09,
-        "short_ratio": 0.7317
+        "sentence_count": 4,
+        "p10_chars": 4,
+        "p25_chars": 7,
+        "median_chars": 12,
+        "avg_chars": 10.0,
+        "short_ratio": 0.5
       }
     },
     "dominant_punctuation": [
@@ -4944,20 +4944,20 @@
     "learned_filters": [],
     "corpus_profile": {
       "enabled": true,
-      "source_count": 3,
-      "chars": 756,
-      "draft_chars": 705,
+      "source_count": 1,
+      "chars": 51,
+      "draft_chars": 51,
       "learned_terms": [],
       "learned_style_phrases": [],
       "learned_sentence_leads": [],
       "learned_aa_bb_shapes": [],
       "sentence_length_baseline": {
-        "sentence_count": 82,
-        "p10_chars": 3,
-        "p25_chars": 4,
-        "median_chars": 6,
-        "avg_chars": 7.09,
-        "short_ratio": 0.7317
+        "sentence_count": 4,
+        "p10_chars": 4,
+        "p25_chars": 7,
+        "median_chars": 12,
+        "avg_chars": 10.0,
+        "short_ratio": 0.5
       }
     },
     "dominant_punctuation": [

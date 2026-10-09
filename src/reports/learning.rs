@@ -811,7 +811,7 @@ pub fn run(opts: &LearningOptions) -> Result<(i32, Vec<PathBuf>)> {
     let plan_engine = PlanEngine::new(&rules.plan)?;
     let ctx = DraftContext::new(rules)?;
     let template_bank = build_template_bank(ctx.draft_rules());
-    let corpus_profile = build_corpus_profile(&ctx, &ctx.corpus_paths_for_targets(&files))?;
+    let corpus_profile = build_corpus_profile(&ctx, &ctx.corpus_paths_for_targets(&files), &files)?;
     let labels = ctx.draft_rules().ending_labels.clone();
 
     let mut analyses: Vec<(PathBuf, Analysis)> = Vec::new();

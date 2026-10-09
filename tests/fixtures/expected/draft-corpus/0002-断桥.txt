@@ -335,8 +335,8 @@ custom_templates:
     L15: 明明白白的声音。清清楚楚的响声。跌跌撞撞的脚步声。
 learned_filters:
 corpus_profile:
-  [OK] sources=3 chars=756 draft_chars=705
-  baseline_sentence_chars: p10=3, p25=4, median=6, avg=7.09, short_ratio=0.7317
+  [OK] sources=1 chars=51 draft_chars=51
+  baseline_sentence_chars: p10=4, p25=7, median=12, avg=10.0, short_ratio=0.5
 tracked_term_categories:
   [WARN] active_categories=6
     actions: count=0, active_terms=0, warn_terms=0

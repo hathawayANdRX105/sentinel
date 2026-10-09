@@ -55,7 +55,7 @@ pub(crate) fn collect_draft_section(
     }
 
     let corpus_paths = ctx.corpus_paths_for_targets(&files);
-    let corpus_profile = crate::audit::draft::build_corpus_profile(ctx, &corpus_paths)?;
+    let corpus_profile = crate::audit::draft::build_corpus_profile(ctx, &corpus_paths, &files)?;
     let template_bank = build_template_bank(ctx.draft_rules());
     let env = AnalysisEnv {
         ctx,

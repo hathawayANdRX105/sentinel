@@ -43,7 +43,7 @@ fn fixture() -> Fixture {
 
     let files = collect_chapter_files(&[story_dir()]).expect("fixture story 应含章节文件");
     assert!(!files.is_empty());
-    let corpus = build_corpus_profile(&ctx, &ctx.corpus_paths_for_targets(&files))
+    let corpus = build_corpus_profile(&ctx, &ctx.corpus_paths_for_targets(&files), &files)
         .expect("语料画像构建不应报错");
     let analyses = files
         .iter()

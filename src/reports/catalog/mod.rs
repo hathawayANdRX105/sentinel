@@ -70,7 +70,7 @@ fn build_story_payloads(
     template_bank: &[TemplateRule],
     term_bank: &[TrackedTerm],
 ) -> Result<(Option<PathBuf>, Vec<Value>)> {
-    let corpus_profile = build_corpus_profile(ctx, &ctx.corpus_paths_for_targets(files))?;
+    let corpus_profile = build_corpus_profile(ctx, &ctx.corpus_paths_for_targets(files), files)?;
 
     let mut novel_dir: Option<PathBuf> = None;
     let mut analyses: Vec<(PathBuf, Analysis)> = Vec::new();

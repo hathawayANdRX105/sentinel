@@ -814,11 +814,16 @@ pub fn run(opts: &RunOptions) -> Result<i32> {
     let corpus_profile: Option<CorpusProfile> = if opts.no_corpus_learning {
         None
     } else {
-        let corpus_paths = match opts.learn_from.as_ref() {
-            Some(paths) => paths.clone(),
-            None => ctx.corpus_paths_for_targets(&files),
-        };
-        build_corpus_profile(&ctx, &corpus_paths)?
+        match opts.learn_from.as_ref() {
+            // 显式指定语料：尊重用户选择，原样计入。
+            Some(paths) => build_corpus_profile(&ctx, paths, &[])?,
+            // 自动定位语料：排除本次分析目标自身，避免本章高频词
+            // 被「语料学到的高频词」在本章自我实现。
+            None => {
+                let corpus_paths = ctx.corpus_paths_for_targets(&files);
+                build_corpus_profile(&ctx, &corpus_paths, &files)?
+            }
+        }
     };
     let term_bank = ctx.draft_rules().tracked_terms.clone();
     let mut any_warn = false;

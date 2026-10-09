@@ -872,7 +872,7 @@ pub fn run(opts: &ProfileOptions) -> Result<(i32, Vec<PathBuf>)> {
     let rules = config::load_rules(&config::default_rules_path())?;
     let ctx = DraftContext::new(rules)?;
     let template_bank = build_template_bank(ctx.draft_rules());
-    let corpus_profile = build_corpus_profile(&ctx, &ctx.corpus_paths_for_targets(&files))?;
+    let corpus_profile = build_corpus_profile(&ctx, &ctx.corpus_paths_for_targets(&files), &files)?;
 
     let mut analyses: Vec<(PathBuf, Analysis)> = Vec::new();
     let mut printed: Vec<PathBuf> = Vec::new();

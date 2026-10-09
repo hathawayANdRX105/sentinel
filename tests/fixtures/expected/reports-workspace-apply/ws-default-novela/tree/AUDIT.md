@@ -17,10 +17,10 @@
 - deposition targets: configs/rules/review.yaml#draft.template_rules x37 configs/rules/review.yaml#draft.tracked_terms x19 skills/review-guide.md x5 novel1/rules/draft.md x3
 - plan-draft alignment: 无
 - `arc1/story1` chapters=`2` warn_sections=`30` top=`ch01-信号.md` (`16` | 终端 x5, 屏幕 x1, 抬头 x1) fatigue=`像/活像比喻 x1, 对白乒乓 x2, 局部疲劳窗口 x6, 把字操作句 x5, 短句/极短句 x32, 章末模板 x7, 视角锚点 x0, 角色名/他她起手 x15, 高频词/点名册 x18, 黏糊词/弱判断 x1`
-  gate=`FAIL x2` recommendation=`targeted_rewrite x2` avg_axes=`一致性准备度 3.5, 句式弹性 4.0, 场景色调稳定 2.0, 对白情感与转轴 4.0, 张力与紧凑度 3.0, 结构完成度 2.0, 视角与判断稳定 3.0, 重复控制 1.0`
+  gate=`FAIL x2` recommendation=`targeted_rewrite x2` avg_axes=`一致性准备度 2.5, 句式弹性 4.0, 场景色调稳定 2.0, 对白情感与转轴 4.0, 张力与紧凑度 3.0, 结构完成度 2.0, 视角与判断稳定 3.0, 重复控制 1.0`
   narrative=`scene:mixed x2 tone:cold x1 quiet x1 emotion:无 speakers:她 x4` templates=`tracked_term::终端 x2 tracked_term::冷光 x2 tracked_term::慢慢 x2 patterns::把字操作句 x2` alignment=`无` ending_signals=`意象压轴 x1 系统流程 x1`
 - `arc1/story2` chapters=`2` warn_sections=`24` top=`ch03-灰港.md` (`13` | 终端 x3, 一下 x1, 因为 x1) fatigue=`像/活像比喻 x1, 对白乒乓 x1, 局部疲劳窗口 x6, 把字操作句 x6, 短句/极短句 x44, 章末模板 x3, 线索面板句 x1, 视角锚点 x0, 角色名/他她起手 x19, 高频词/点名册 x4`
-  gate=`WATCH x2` recommendation=`light_revise x2` avg_axes=`一致性准备度 4.5, 句式弹性 4.0, 场景色调稳定 2.5, 对白情感与转轴 5.0, 张力与紧凑度 3.5, 结构完成度 3.0, 视角与判断稳定 3.0, 重复控制 1.0`
+  gate=`WATCH x2` recommendation=`light_revise x2` avg_axes=`一致性准备度 3.5, 句式弹性 4.0, 场景色调稳定 2.5, 对白情感与转轴 5.0, 张力与紧凑度 3.5, 结构完成度 3.0, 视角与判断稳定 3.0, 重复控制 1.0`
   narrative=`scene:dialogue x1 mixed x1 tone:grime x2 emotion:无 speakers:她 x7 他 x4` templates=`tracked_term::终端 x2 tracked_term::一下 x2 patterns::线索面板词 x2 patterns::把字操作句 x2` alignment=`无` ending_signals=`意象压轴 x2`
   trend=`ending_signal_runs=意象压轴 x2; convergence=意象压轴+tone:grime x2`
   ending_signal_flow=`意象压轴 -> 意象压轴`

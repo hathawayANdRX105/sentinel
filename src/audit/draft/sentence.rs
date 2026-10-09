@@ -276,10 +276,19 @@ fn learned_patterns_from_terms(
 }
 
 /// 语料画像（对齐 `build_corpus_profile`；无可用语料时返回 None）。
+///
+/// `exclude` 中的文件（通常是本次分析目标自身）不计入语料：否则「语料学到
+/// 的高频词」会包含被分析章节自己的用词，本章高频词必被本章判过密，
+/// 指标自我实现、恒响。
 pub fn build_corpus_profile(
     ctx: &DraftContext,
     paths: &[PathBuf],
+    exclude: &[PathBuf],
 ) -> Result<Option<CorpusProfile>> {
+    let excluded: std::collections::HashSet<PathBuf> = exclude
+        .iter()
+        .map(|p| p.canonicalize().unwrap_or_else(|_| p.clone()))
+        .collect();
     let files: Vec<PathBuf> = iter_target_files(paths)
         .into_iter()
         .filter(|p| {
@@ -287,6 +296,7 @@ pub fn build_corpus_profile(
                 .map(|e| e == "md" || e == "txt")
                 .unwrap_or(false)
                 && !is_generated_or_template(p)
+                && !excluded.contains(&p.canonicalize().unwrap_or_else(|_| p.clone()))
         })
         .collect();
     if files.is_empty() {

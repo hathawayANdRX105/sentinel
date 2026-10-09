@@ -786,7 +786,7 @@ pub fn run(opts: &StatsDraftOptions) -> Result<i32> {
         None
     } else {
         let corpus_paths = ctx.corpus_paths_for_targets(&files);
-        build_corpus_profile(&ctx, &corpus_paths)?
+        build_corpus_profile(&ctx, &corpus_paths, &files)?
     };
 
     let env = AnalysisEnv {

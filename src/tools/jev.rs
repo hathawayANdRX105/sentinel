@@ -83,16 +83,16 @@ struct Candidate {
 
 /// 一个已判定句子。
 #[derive(Debug, Clone)]
-struct Ranked {
-    text: String,
-    source: String,
-    label: String,
+pub struct Ranked {
+    pub text: String,
+    pub source: String,
+    pub label: String,
     /// 命中样本对应的规则说明（review.yaml 的 note 字段）。
-    note: String,
-    probability: f64,
-    rewrite: Option<String>,
+    pub note: String,
+    pub probability: f64,
+    pub rewrite: Option<String>,
     /// 改写后经 jev 判定的「AI 腔概率」（`--verify` 时）。
-    ai_prob_after: Option<f64>,
+    pub ai_prob_after: Option<f64>,
     /// 改写是否因语义校验不一致被拒绝（`--verify` 时）。
     pub verify_rejected: bool,
     /// `--classify` 诊断标签（AI 腔类型 id）。
@@ -241,7 +241,10 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
 
 /// 反向红线复检：对原稿与改写后草稿各跑一次 `audit-draft` 分析，
 /// 返回 `(原稿 warn_sections, 原稿 hard_flags, 改写后 warn_sections, 改写后 hard_flags)`。
-fn redline_check(draft_path: &Path, rewritten_path: &Path) -> Result<(usize, usize, usize, usize)> {
+pub fn redline_check(
+    draft_path: &Path,
+    rewritten_path: &Path,
+) -> Result<(usize, usize, usize, usize)> {
     let rules = crate::config::load_rules(&crate::config::default_rules_path())?;
     let ctx = crate::audit::draft::DraftContext::new(rules)?;
     let template_bank = crate::rules::build_template_bank(ctx.draft_rules());
@@ -634,24 +637,16 @@ pub fn style_guidance_from_text(text: &str) -> String {
     guidance
 }
 
-/// 调用生成模型（ferrite 网关，请求头伪装成 omp 客户端）改写一个句子。
-fn rewrite_sentence(
-    base_url: &str,
-    api_key: &str,
-    model: &str,
-    ranked: &Ranked,
-    style_guidance: Option<&str>,
-) -> Result<String> {
+/// 构造改写 prompt（纯函数，可测试）：命中规则 note 优先于通用 label，
+/// 文风指导注入 system；事实约束恒定。
+#[must_use]
+pub fn rewrite_prompt(ranked: &Ranked, style_guidance: Option<&str>) -> (String, String) {
+    let base = "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
+约束：只改表达，不改事实——人名、数字、引语、关键情节不得变动；\
+不要添加原文没有的信息；只输出改写后的文本，不要解释。";
     let system = match style_guidance {
-        Some(guidance) => format!(
-            "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
-约束：只改表达，不改事实——人名、数字、引语、关键情节不得变动；\
-不要添加原文没有的信息；只输出改写后的文本，不要解释。\n{guidance}"
-        ),
-        None => "你是资深中文小说编辑，擅长把 AI 生成腔改写成自然、有人味的文学语言。\
-约束：只改表达，不改事实——人名、数字、引语、关键情节不得变动；\
-不要添加原文没有的信息；只输出改写后的文本，不要解释。"
-            .to_string(),
+        Some(guidance) => format!("{base}\n{guidance}"),
+        None => base.to_string(),
     };
     let diagnosis = if !ranked.note.is_empty() {
         ranked.note.as_str()
@@ -664,6 +659,18 @@ fn rewrite_sentence(
         "原文（AI 腔概率 {:.2}，问题：{}）：\n{}\n\n请针对上述问题把这段话改写得像人写的。",
         ranked.probability, diagnosis, ranked.text
     );
+    (system, user)
+}
+
+/// 调用生成模型（ferrite 网关，请求头伪装成 omp 客户端）改写一个句子。
+fn rewrite_sentence(
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    ranked: &Ranked,
+    style_guidance: Option<&str>,
+) -> Result<String> {
+    let (system, user) = rewrite_prompt(ranked, style_guidance);
     let body = json!({
         "model": model,
         "messages": [
@@ -790,7 +797,7 @@ fn verify_rewrite(
 /// 命中句（`sentence_lengths.sentences`）通常不含句尾标点/引号；替换时若
 /// 改写结果以标点或引号结尾，则把原文中紧随其后的同类标点一并吞掉，
 /// 避免生成 `。。`、`。"` 这类残留。
-fn apply_rewrites(draft_text: &str, ranked: &[Ranked]) -> String {
+pub fn apply_rewrites(draft_text: &str, ranked: &[Ranked]) -> String {
     const TRAILING: [char; 11] = [
         '。', '！', '？', '；', '，', '：', '"', '”', '’', '」', '』',
     ];
