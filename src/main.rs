@@ -264,6 +264,18 @@ enum Command {
         /// 覆盖 FERRITE_MODEL（默认 agnes-3.0-flash）
         #[arg(long, value_name = "MODEL")]
         rewrite_model: Option<String>,
+        /// 同时收集全文句子（sentence_lengths.sentences），而不只是规则命中样本
+        #[arg(long)]
+        all_sentences: bool,
+        /// 改写后用 jev_compare 校验语义保真，不一致则拒绝改写
+        #[arg(long)]
+        verify: bool,
+        /// 原始草稿文件路径（配合 --output-draft 生成改写后全文）
+        #[arg(long, value_name = "FILE")]
+        draft: Option<PathBuf>,
+        /// 改写后全文输出路径
+        #[arg(long, value_name = "FILE")]
+        output_draft: Option<PathBuf>,
     },
     /// 对比两份 analysis JSON，输出 Markdown 指标差异表
     StudyCompare {
@@ -537,6 +549,10 @@ fn main() -> Result<()> {
             rewrite_base_url,
             rewrite_api_key,
             rewrite_model,
+            all_sentences,
+            verify,
+            draft,
+            output_draft,
         } => {
             let opts = tools::jev::JevReviewOptions {
                 analysis,
@@ -551,6 +567,10 @@ fn main() -> Result<()> {
                 rewrite_base_url,
                 rewrite_api_key,
                 rewrite_model,
+                all_sentences,
+                verify,
+                draft,
+                output_draft,
             };
             let rc = tools::jev::run(&opts)?;
             if rc != 0 {

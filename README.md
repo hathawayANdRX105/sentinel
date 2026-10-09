@@ -74,8 +74,11 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 [Jev](https://github.com/jkudish/jev-mcp) 做语义判断（`jev_noul`：每句
 「是典型 AI 生成腔」的概率），按概率降序输出 top-N 值得改写的句子、
 来源与改写提示。加 `--rewrite` 后，再用生成模型（默认 ferrite 网关的
-`agnes-3.0-flash`）逐句改写，输出「原句 → 改写」对照。这是 P0/P1 验证
-原型：sentinel 核心规则层零改动，Jev 判断与生成模型都是可选外部层。
+`agnes-3.0-flash`）逐句改写；`--verify` 用 `jev_compare` 校验改写前后
+语义一致（不一致拒绝改写），并给出人味评分；`--all-sentences` 把候选
+扩展到全文句子（不限于规则命中样本）；`--draft` + `--output-draft`
+生成改写后全文。这是 P0/P1 验证原型：sentinel 核心规则层零改动，
+Jev 判断与生成模型都是可选外部层。
 
 ```bash
 # 1) 先生成 analysis JSON
@@ -91,6 +94,15 @@ JEV_API_BASE_URL=https://…/v1/systemone \
 JEV_API_KEY=sk-... \
 FERRITE_API_KEY=sk-... \
 cargo run --bin sentinel -- jev-review /tmp/ch01.json --top 10 --rewrite
+
+# 4) 全文改写 + 语义校验 + 输出改写后全文
+JEV_API_BASE_URL=https://…/v1/systemone \
+JEV_API_KEY=sk-... \
+FERRITE_API_KEY=sk-... \
+cargo run --bin sentinel -- jev-review /tmp/ch01.json \
+  --all-sentences --top 100 --rewrite --verify \
+  --draft path/to/ch01.md --output-draft /tmp/ch01-rewritten.md
+```
 ```
 
 Jev 环境变量：
@@ -110,8 +122,10 @@ Jev 环境变量：
 | `FERRITE_MODEL` | 模型名，默认 `agnes-3.0-flash` |
 
 常用参数：`--top N`（输出前 N 句，默认 10）、`--limit N`（提交候选上限，
-`jev_noul` 单批上限 64）、`--rewrite`（生成模型改写）、`--output FILE`、
-`--json`。
+`jev_noul` 单批上限 64）、`--rewrite`（生成模型改写）、`--verify`
+（改写后 jev_compare 语义校验 + 人味评分）、`--all-sentences`（全文句子
+候选）、`--draft FILE` / `--output-draft FILE`（输出改写后全文）、
+`--output FILE`、`--json`。
 
 ## 测试与 golden 基线
 

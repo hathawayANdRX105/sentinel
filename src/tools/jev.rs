@@ -56,6 +56,14 @@ pub struct JevReviewOptions {
     pub rewrite_api_key: Option<String>,
     /// 覆盖 `FERRITE_MODEL`。
     pub rewrite_model: Option<String>,
+    /// 同时收集全文句子（sentence_lengths.sentences），而不只是规则命中样本。
+    pub all_sentences: bool,
+    /// 改写后用 jev_compare 校验语义保真，不一致则拒绝改写。
+    pub verify: bool,
+    /// 原始草稿文件路径（配合 `--output-draft` 生成改写后全文）。
+    pub draft: Option<PathBuf>,
+    /// 改写后全文输出路径。
+    pub output_draft: Option<PathBuf>,
 }
 
 /// 一个候选命中句。
@@ -75,6 +83,10 @@ struct Ranked {
     label: String,
     probability: f64,
     rewrite: Option<String>,
+    /// 改写后经 jev 判定的「AI 腔概率」（`--verify` 时）。
+    ai_prob_after: Option<f64>,
+    /// 改写是否因语义校验不一致被拒绝（`--verify` 时）。
+    verify_rejected: bool,
 }
 
 /// 单句最大提交字符数（`jev_noul` 上限 2000，留安全余量）。
@@ -85,6 +97,10 @@ const DEFAULT_MODEL: &str = "jev-latest";
 const DEFAULT_REWRITE_BASE_URL: &str = "http://127.0.0.1:3211/v1";
 /// 默认改写模型。
 const DEFAULT_REWRITE_MODEL: &str = "agnes-3.0-flash";
+/// 语义校验接受阈值：改写句与原文同属一个事实的最低概率。
+const VERIFY_SAME_FACT_MIN: f64 = 0.7;
+/// 全文句子路径标记（`--all-sentences` 收集用）。
+const SENTENCE_LENGTHS_PATH: &str = ".sentence_lengths.sentences[";
 
 /// 运行 `jev-review`，返回进程退出码。
 pub fn run(opts: &JevReviewOptions) -> Result<i32> {
@@ -93,9 +109,9 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
     let root: Value = serde_json::from_str(&analysis_text)
         .with_context(|| "分析 JSON 解析失败（需要 audit-draft --format json 的输出）")?;
 
-    let candidates = collect_candidates(&root, opts.limit);
+    let candidates = collect_candidates(&root, opts.limit, opts.all_sentences);
     if candidates.is_empty() {
-        eprintln!("未找到任何含 `text` 字段的命中样本。");
+        eprintln!("未找到任何候选句子（JSON 中无命中样本或全文句子）。");
         return Ok(0);
     }
 
@@ -135,11 +151,33 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
             .unwrap_or_else(|| DEFAULT_REWRITE_MODEL.to_string());
         for r in ranked.iter_mut().take(opts.top) {
             match rewrite_sentence(&rw_base_url, &rw_api_key, &rw_model, r) {
-                Ok(text) => r.rewrite = Some(text),
+                Ok(text) => {
+                    if opts.verify {
+                        match verify_rewrite(&base_url, &api_key, &model, &r.text, &text) {
+                            Ok((same_fact, ai_after)) => {
+                                r.ai_prob_after = Some(ai_after);
+                                if same_fact {
+                                    r.rewrite = Some(text);
+                                } else {
+                                    r.verify_rejected = true;
+                                    eprintln!("改写被拒（语义不一致）：{}", r.source);
+                                }
+                            }
+                            Err(e) => {
+                                // 校验失败时保守接受改写，但保留原句可查。
+                                r.rewrite = Some(text);
+                                eprintln!("语义校验失败，保留改写（{}）：{e:#}", r.source);
+                            }
+                        }
+                    } else {
+                        r.rewrite = Some(text);
+                    }
+                }
                 Err(e) => eprintln!("改写失败（{}）：{e:#}", r.source),
             }
         }
     }
+
     let report = if opts.json {
         render_json(&ranked, &answered_model, opts.top)?
     } else {
@@ -151,18 +189,26 @@ pub fn run(opts: &JevReviewOptions) -> Result<i32> {
             .with_context(|| format!("写出报告失败: {}", path.display()))?,
         None => print!("{report}"),
     }
+
+    if let (Some(draft_path), Some(output_path)) = (&opts.draft, &opts.output_draft) {
+        let draft_text = std::fs::read_to_string(draft_path)
+            .with_context(|| format!("读取原始草稿失败: {}", draft_path.display()))?;
+        let rewritten = apply_rewrites(&draft_text, &ranked);
+        std::fs::write(output_path, rewritten)
+            .with_context(|| format!("写出改写后全文失败: {}", output_path.display()))?;
+        println!("\n改写后全文已写出：{}", output_path.display());
+    }
     Ok(0)
 }
 
-/// 递归收集 JSON 中规则/分析**命中样本**的文本：只收集路径落在
-/// `samples[...]` / `sample[...]` 下的 `text` 字段或字符串元素，
-/// 排除 `sentence_lengths.sentences` 等全文句子，使候选聚焦于
-/// sentinel 已标记的句子。保留来源路径与同层 `label`/`name`/`category`
-/// 作为诊断标签。
-fn collect_candidates(root: &Value, limit: usize) -> Vec<Candidate> {
+/// 递归收集文本候选：默认只收集规则/分析**命中样本**（路径落在
+/// `samples[...]` / `sample[...]` 下的 `text` 字段或字符串元素）；
+/// `all_sentences` 时额外收集 `sentence_lengths.sentences` 的全文句子。
+/// 保留来源路径与同层 `label`/`name`/`category` 作为诊断标签。
+fn collect_candidates(root: &Value, limit: usize, all_sentences: bool) -> Vec<Candidate> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
-    collect_text(root, "$".to_string(), &mut seen, &mut out);
+    collect_text(root, "$".to_string(), &mut seen, &mut out, all_sentences);
     out.truncate(limit);
     out
 }
@@ -172,17 +218,19 @@ fn collect_text(
     path: String,
     seen: &mut std::collections::HashSet<String>,
     out: &mut Vec<Candidate>,
+    all_sentences: bool,
 ) {
     match value {
         Value::Object(map) => {
             // 当前对象是一个命中样本：取 text 字段（仅样本路径）。
-            if path.contains(".samples[") {
+            if path.contains(".samples[") || (all_sentences && path.contains(SENTENCE_LENGTHS_PATH))
+            {
                 if let Some(text) = map.get("text").and_then(Value::as_str) {
                     push_candidate(text, &path, map, seen, out);
                 }
             }
             for (k, v) in map {
-                collect_text(v, format!("{path}.{k}"), seen, out);
+                collect_text(v, format!("{path}.{k}"), seen, out, all_sentences);
             }
         }
         Value::Array(arr) => {
@@ -191,9 +239,14 @@ fn collect_text(
                 for s in arr.iter().filter_map(Value::as_str) {
                     push_candidate(s, &path, &Map::new(), seen, out);
                 }
+            } else if all_sentences && path.contains(SENTENCE_LENGTHS_PATH) {
+                // 全文句子（--all-sentences）。
+                for s in arr.iter().filter_map(Value::as_str) {
+                    push_candidate(s, &path, &Map::new(), seen, out);
+                }
             } else {
                 for (i, v) in arr.iter().enumerate() {
-                    collect_text(v, format!("{path}[{i}]"), seen, out);
+                    collect_text(v, format!("{path}[{i}]"), seen, out, all_sentences);
                 }
             }
         }
@@ -325,6 +378,8 @@ fn ask_jev_noul(
             label: c.label.clone(),
             probability: noul,
             rewrite: None,
+            ai_prob_after: None,
+            verify_rejected: false,
         });
     }
     ranked.sort_by(|a, b| {
@@ -390,6 +445,125 @@ fn rewrite_sentence(base_url: &str, api_key: &str, model: &str, ranked: &Ranked)
         .map(str::to_string)
         .context("改写响应缺少 choices[0].message.content")
 }
+
+/// 用 Jev 校验改写：`jev_compare`（overall 语义关系）+ 改写后 AI 腔概率。
+/// 返回 `(same_fact_ok, ai_prob_after)`。
+fn verify_rewrite(
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    original: &str,
+    rewritten: &str,
+) -> Result<(bool, f64)> {
+    let questions = json!({
+        "overall": {
+            "type": "choice",
+            "instructions": "Do the two passages state the same underlying fact, contradict each other, or discuss different facts?",
+            "criteria": {
+                "same_fact": "Both passages state the same underlying fact or claim",
+                "contradicts": "The passages state opposing facts about the same subject",
+                "different_facts": "The passages discuss different subjects or make non-overlapping claims"
+            }
+        },
+        "ai_after": {
+            "type": "noul",
+            "instructions": format!("proposition `ai_after`: 这句改写后的小说文本是典型的 AI 生成腔（枯燥、模板化、解释腔、流水账等）：\"{}\"", rewritten),
+            "criteria": {
+                "true": "是典型的 AI 生成腔，枯燥乏味",
+                "false": "不是 AI 生成腔，自然生动"
+            }
+        }
+    });
+    let body = json!({
+        "model": model,
+        "state": {
+            "purpose": null,
+            "passage_a": original,
+            "passage_b": rewritten,
+            "aspects": []
+        },
+        "questions": questions,
+    });
+    let response = ureq::post(base_url)
+        .set("Authorization", &format!("Bearer {api_key}"))
+        .set("Content-Type", "application/json")
+        .set("Accept", "application/json")
+        .send_string(&body.to_string());
+
+    let text = match response {
+        Ok(resp) => resp.into_string().context("读取校验响应体失败")?,
+        Err(ureq::Error::Status(code, resp)) => {
+            let body_text = resp.into_string().unwrap_or_default();
+            bail!("校验端点返回 HTTP {code}: {body_text}");
+        }
+        Err(e) => bail!("校验端点请求失败: {e}"),
+    };
+    let parsed: Value = serde_json::from_str(&text).with_context(|| "校验响应不是有效 JSON")?;
+    let answers = parsed
+        .get("answers")
+        .and_then(Value::as_object)
+        .context("校验响应缺少 answers 对象")?;
+
+    let overall = answers
+        .get("overall")
+        .context("校验响应缺少 overall 判定")?;
+    let same_fact_choice = overall
+        .get("choice")
+        .and_then(Value::as_str)
+        .context("overall 判定缺少 choice")?;
+    let same_fact_prob = overall
+        .get("probabilities")
+        .and_then(|p| p.get("same_fact"))
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let same_fact_ok = same_fact_choice == "same_fact" && same_fact_prob >= VERIFY_SAME_FACT_MIN;
+
+    let ai_after = answers
+        .get("ai_after")
+        .and_then(|a| a.get("noul"))
+        .and_then(Value::as_f64)
+        .context("校验响应缺少 ai_after 判定")?;
+    Ok((same_fact_ok, ai_after))
+}
+
+/// 把被接受的改写按原句精确替换回填到草稿全文，生成改写后草稿。
+///
+/// 命中句（`sentence_lengths.sentences`）通常不含句尾标点/引号；替换时若
+/// 改写结果以标点或引号结尾，则把原文中紧随其后的同类标点一并吞掉，
+/// 避免生成 `。。`、`。"` 这类残留。
+fn apply_rewrites(draft_text: &str, ranked: &[Ranked]) -> String {
+    const TRAILING: [char; 11] = [
+        '。', '！', '？', '；', '，', '：', '"', '”', '’', '」', '』',
+    ];
+    let mut out = draft_text.to_string();
+    for r in ranked {
+        if r.verify_rejected {
+            continue;
+        }
+        let Some(rewritten) = &r.rewrite else {
+            continue;
+        };
+        if r.text == *rewritten {
+            continue;
+        }
+        let Some(pos) = out.find(&r.text) else {
+            continue;
+        };
+        let end = pos + r.text.len();
+        let mut replace_end = end;
+        if let Some(last) = rewritten.chars().last() {
+            if TRAILING.contains(&last) {
+                if let Some(next) = out[end..].chars().next() {
+                    if TRAILING.contains(&next) {
+                        replace_end = end + next.len_utf8();
+                    }
+                }
+            }
+        }
+        out.replace_range(pos..replace_end, rewritten);
+    }
+    out
+}
 /// 渲染文本报告。
 fn render_text(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
     let mut s = String::new();
@@ -409,8 +583,17 @@ fn render_text(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
             r.text,
             r.source
         ));
-        if let Some(rewritten) = &r.rewrite {
-            s.push_str(&format!("   改写：{rewritten}\n"));
+        if r.verify_rejected {
+            s.push_str(&format!(
+                "   改写被拒：语义校验不一致（原句保留）。\n   模型改写：{}\n",
+                r.rewrite.as_deref().unwrap_or("（无）")
+            ));
+        } else if let Some(rewritten) = &r.rewrite {
+            let verified = r
+                .ai_prob_after
+                .map(|p| format!("（改写后 AI 腔概率 {p:.2}）"))
+                .unwrap_or_default();
+            s.push_str(&format!("   改写{verified}：{rewritten}\n"));
         } else {
             s.push_str(&format!(
                 "   改写提示：把「{}」中总结式、模板化的表述改为具体可见的动作、声音、物件或人物误读，避免解释腔替读者下结论；保留原有人名、数字、引语与事实。\n",
@@ -419,7 +602,29 @@ fn render_text(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
         }
         s.push('\n');
     }
+    s.push_str(&render_humanity_score(ranked, top));
     Ok(s)
+}
+
+/// 人味评分：原句与改写后句子的平均 AI 腔概率对比。
+fn render_humanity_score(ranked: &[Ranked], top: usize) -> String {
+    let items: Vec<&Ranked> = ranked.iter().take(top).collect();
+    let before_avg = items.iter().map(|r| r.probability).sum::<f64>() / items.len() as f64;
+    let after_values: Vec<f64> = items.iter().filter_map(|r| r.ai_prob_after).collect();
+    let mut s = String::from("\n## 人味评分\n\n");
+    if after_values.is_empty() {
+        s.push_str(&format!(
+            "（未启用 --verify，无改写后判定）原句平均 AI 腔概率：{before_avg:.2}\n"
+        ));
+        return s;
+    }
+    let after_avg = after_values.iter().sum::<f64>() / after_values.len() as f64;
+    let delta = after_avg - before_avg;
+    let score = ((1.0 - after_avg) * 100.0).round() as i64;
+    s.push_str(&format!(
+        "- 原句平均 AI 腔概率：{before_avg:.2}\n- 改写后平均 AI 腔概率：{after_avg:.2}\n- AI 腔概率变化：{delta:+.2}\n- 人味评分：{score}/100（基于改写后判定）\n"
+    ));
+    s
 }
 
 /// 渲染 JSON 结果。
@@ -436,6 +641,8 @@ fn render_json(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
                 "source": r.source,
                 "label": r.label,
                 "rewrite": r.rewrite,
+                "ai_probability_after": r.ai_prob_after,
+                "verify_rejected": r.verify_rejected,
             })
         })
         .collect();
@@ -444,6 +651,27 @@ fn render_json(ranked: &[Ranked], model: &str, top: usize) -> Result<String> {
         "model": model,
         "judged": ranked.len(),
         "top": top_items,
+        "humanity_score": humanity_score_json(ranked, top),
     });
     Ok(serde_json::to_string_pretty(&out)?)
+}
+
+/// 人味评分的 JSON 形态。
+fn humanity_score_json(ranked: &[Ranked], top: usize) -> Value {
+    let items: Vec<&Ranked> = ranked.iter().take(top).collect();
+    if items.is_empty() {
+        return json!({"before_avg": null, "after_avg": null, "delta": null, "score": null});
+    }
+    let before_avg = items.iter().map(|r| r.probability).sum::<f64>() / items.len() as f64;
+    let after_values: Vec<f64> = items.iter().filter_map(|r| r.ai_prob_after).collect();
+    if after_values.is_empty() {
+        return json!({"before_avg": before_avg, "after_avg": null, "delta": null, "score": null});
+    }
+    let after_avg = after_values.iter().sum::<f64>() / after_values.len() as f64;
+    json!({
+        "before_avg": before_avg,
+        "after_avg": after_avg,
+        "delta": after_avg - before_avg,
+        "score": ((1.0 - after_avg) * 100.0).round() as i64,
+    })
 }
