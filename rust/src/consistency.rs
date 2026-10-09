@@ -40,7 +40,7 @@ pub const DOC_GLOBS: &[&str] = &[
 pub const CONSISTENCY_MODULE_TARGET: &str = "src/consistency.py";
 pub const RULES_TEMPLATE_TARGET: &str = "configs/rules/review.yaml#draft.template_rules";
 pub const BOOK_DRAFT_RULES_TARGET: &str = "novel1/rules/draft.md";
-pub const CONSISTENCY_CLI: &[&str] = &["python3", "-m", "consistency"];
+pub const CONSISTENCY_CLI: &[&str] = &["sentinel", "consistency"];
 
 pub const FEEDBACK_DECISIONS: &[&str] = &["confirmed", "false_positive", "designed_keep", "watch"];
 pub const FEEDBACK_FACETS: &[&str] = &[
@@ -2453,10 +2453,10 @@ pub fn build_story_conflict_snapshot_from_path(
         feedback_path: Some(feedback_path),
         story: Some(story.clone()),
         review_queue_command: Some(format!(
-            "python3 -m consistency review-queue {novel_dir_name} --story {story}",
+            "sentinel consistency review-queue {novel_dir_name} --story {story}",
         )),
         feedback_summary_command: Some(format!(
-            "python3 -m consistency feedback-summary {novel_dir_name} --story {story}",
+            "sentinel consistency feedback-summary {novel_dir_name} --story {story}",
         )),
         rows,
         decision_counter,

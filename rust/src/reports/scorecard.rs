@@ -505,7 +505,8 @@ pub struct TrendSnapshot {
 }
 
 /// Python `build_story_trend_snapshots`：章末标签连续段 × 色调/情绪同值段重叠。
-fn build_story_trend_snapshots(
+#[must_use]
+pub fn build_story_trend_snapshots(
     analyses: &[(PathBuf, &Analysis)],
     labels: &EndingLabels,
 ) -> Vec<(PathBuf, TrendSnapshot)> {

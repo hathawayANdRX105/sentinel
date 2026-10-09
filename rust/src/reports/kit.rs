@@ -45,13 +45,13 @@ pub fn review_kit_path_for(draft_path: &Path) -> Result<PathBuf> {
 
 /// 派单条目（对齐 Python `_add_assignment` 的 dict 键序）。
 #[derive(Debug, Clone)]
-struct Assignment {
-    priority: String,
-    chapter: String,
-    title: String,
-    reason: String,
-    action: String,
-    source: String,
+pub struct Assignment {
+    pub priority: String,
+    pub chapter: String,
+    pub title: String,
+    pub reason: String,
+    pub action: String,
+    pub source: String,
 }
 
 /// Python `_assignment_key`：`(priority, chapter, title)`。
@@ -258,8 +258,9 @@ struct ConvergeRun {
     secondary_label: String,
 }
 
-/// 对齐 Python `collect_review_assignments`。
-fn collect_review_assignments(
+/// 对齐 Python `collect_review_assignments`（评审套件派单；`ordered` 为章文件 ×
+/// 分析，`snapshots` 为章文件 × 一致性快照，均按输入序）。
+pub fn collect_review_assignments(
     story_dir: &Path,
     ordered: &[(PathBuf, &Analysis)],
     snapshots: &[(PathBuf, StoryConflictSnapshot)],

@@ -80,3 +80,21 @@ Python 参考是 `Path(*parts)`（`Path.parts` 的根组件为单个 `"/"`）。
 `stats_path_for` 改用 `src/stats/draft.rs` `path_from_parts`（已 `pub`，
 逐段 `PathBuf::push`，根组件还原单 `/`）。`tests/reports_workspace_apply.rs`
 以 tempdir **绝对路径**输入运行，回归锁定此修复。
+
+## 迁移收尾：指引命令文案切换（有意的参考偏离）
+
+移植完成后，输出中给用户的指引命令从 Python 形态改为 Rust CLI 形态
+（迁移前 Python 参考的字节对齐已完成使命，此处为**有意偏离**，不再回跟）：
+
+- `consistency` 的 `CONSISTENCY_CLI` 常量与 review-queue/feedback-summary 指引：
+  `python3 -m consistency ...` → `sentinel consistency ...`。
+- `reports.workspace` Suggested Order 中 `consistency_index.py suspects`
+  → `sentinel consistency suspects`。
+- 受影响 golden 基线（consistency/learning/workspace 输出树）同步文本替换，
+  全量测试锁定新文案。
+
+## golden 基线再生工具
+
+`rust/tests/*/` 头注释中的 `PYTHONPATH=src python3 -m ...` 生成命令为移植期历史事实；
+Python 参考实现已从分支删除（commit `feat: ...` 之前的历史），如需再生基线，
+从 git 历史检出旧版 `src/` 于同布局下运行。

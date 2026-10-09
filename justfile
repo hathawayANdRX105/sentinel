@@ -1,27 +1,25 @@
 set dotenv-load := false
 
-export PYTHONPATH := "src"
-
 # Show active bd tasks.
 bd:
     bd list --status open,in_progress --limit 20
 
-# Run rule/config tests.
-test-rules:
-    python3 -m unittest tests.test_rules_config -v
+# Build the Rust crate (all targets, all features).
+build:
+    cd rust && cargo build --all-targets --all-features
 
-# Run output integration tests.
-test-outputs:
-    python3 -m unittest tests.test_outputs -v
+# Clippy on all targets.
+clippy:
+    cd rust && cargo clippy --all-targets --all-features
 
-# Run focused local verification.
+# Check formatting.
+fmt:
+    cd rust && cargo fmt --all -- --check
+
+# Run the full test suite (unit + integration, incl. golden baselines).
 test:
-    python3 -m unittest tests.test_rules_config tests.test_outputs -v
+    cd rust && cargo test --all-targets --all-features
 
-# Smoke the plan audit CLI. Usage: just smoke-plan path/to/plan.md /tmp/plan.md
-smoke-plan input output:
-    python3 -m audit.plan --input {{input}} --output {{output}}
-
-# Smoke the draft audit CLI. Usage: just smoke-draft path/to/ch01.md /tmp/draft.md
-smoke-draft input output:
-    python3 -m audit.draft --input {{input}} --format markdown --output {{output}}
+# Smoke the sentinel CLI. Usage: just smoke audit-draft <file> [args...]
+smoke *args:
+    cd rust && cargo run --bin sentinel --manifest-path Cargo.toml -- {{args}}

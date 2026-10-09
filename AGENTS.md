@@ -2,30 +2,33 @@
 
 ## Scope
 
-- This repository contains only the Sentinel review tools, not novel prose.
-- Treat `novel-novel2` as external input data passed by CLI path.
-- Keep the package under `src/`; do not reintroduce the old top-level `sentinel/` package.
+- This repository contains only the Sentinel review tools (Rust, crate at `rust/`), not novel prose.
+- External novel directories are passed by CLI path only.
+- Rules live in `configs/rules/review.yaml`; do not add new hardcoded Chinese term banks in Rust.
+- Golden baselines under `rust/tests/fixtures/expected/` are byte contracts; see
+  `rust/PORTING_NOTES.md` before changing any output format.
 
 ## Workflow
 
 - Use `bd` for task state when `.beads/` is present.
-- Keep review rules in `configs/rules/review.yaml`; avoid adding new hardcoded Chinese term banks in Python.
 - Prefer conservative deletion: remove duplicate loaders or dead wrappers only when tests cover the behavior.
 
 ## Verification
 
-Run focused checks from the repository root:
+From the repository root:
 
 ```bash
-PYTHONPATH=src python3 -m unittest tests.test_rules_config -v
-PYTHONPATH=src python3 -m unittest tests.test_outputs -v
+just test    # cargo test --all-targets --all-features (run in rust/)
+just clippy  # cargo clippy --all-targets --all-features, zero warnings required
+just fmt
 ```
 
-CLI smoke examples:
+CLI smoke examples (binary: `cargo run -q --bin sentinel -- ...` in `rust/`):
 
 ```bash
-PYTHONPATH=src python3 -m audit.plan --input path/to/plan.md --output /tmp/plan.md
-PYTHONPATH=src python3 -m audit.draft --input path/to/ch01.md --format markdown --output /tmp/draft.md
-PYTHONPATH=src python3 -m stats.plan --input path/to/plans --output-root /tmp/plan-stats-out
-PYTHONPATH=src python3 -m stats.draft --input path/to/story-dir --output-root /tmp/draft-stats-out
+sentinel audit-plan path/to/plan.md --output /tmp/plan.md
+sentinel audit-draft path/to/ch01.md --format markdown --output /tmp/draft.md
+sentinel stats-plan path/to/plans --output-root /tmp/plan-stats-out
+sentinel stats-draft path/to/story-dir --output-root /tmp/draft-stats-out
+sentinel consistency build path/to/novel1
 ```
