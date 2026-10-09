@@ -30,6 +30,8 @@ pub fn load_rules(path: &Path) -> Result<ReviewRules> {
 pub struct ReviewRules {
     pub draft: DraftConfig,
     pub plan: PlanConfig,
+    #[serde(default)]
+    pub study: Option<StudyConfig>,
 }
 
 /// 草稿规则，对应 `draft` 节。
@@ -338,4 +340,16 @@ pub struct FunctionRules {
     pub ending: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub scene: HashMap<String, Vec<String>>,
+}
+
+/// 研究工具词集配置，对应 `study` 节（可选；缺省时各词集为空）。
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct StudyConfig {
+    /// 代名词表（pronouns）。
+    pub pronouns: Vec<String>,
+    /// 人名表（personal_names）。
+    pub personal_names: Vec<String>,
+    /// 对白归属词表（dialogue_attribution）。
+    pub dialogue_attribution: Vec<String>,
 }

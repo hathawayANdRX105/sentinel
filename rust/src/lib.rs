@@ -10,5 +10,6 @@ pub mod input;
 pub mod reports;
 pub mod rules;
 pub mod stats;
+pub mod study;
 pub mod text;
 pub mod tools;

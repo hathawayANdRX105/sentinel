@@ -98,3 +98,38 @@ Python 参考是 `Path(*parts)`（`Path.parts` 的根组件为单个 `"/"`）。
 `rust/tests/*/` 头注释中的 `PYTHONPATH=src python3 -m ...` 生成命令为移植期历史事实；
 Python 参考实现已从分支删除（commit `feat: ...` 之前的历史），如需再生基线，
 从 git 历史检出旧版 `src/` 于同布局下运行。
+
+## study-pov：py 导入损坏与 `schema_version` 意图值
+
+`src/study/pov.py` 顶部 `from audit.draft import ANALYSIS_SCHEMA_VERSION, split_paragraph_infos, split_sentences`
+三个符号：
+- `ANALYSIS_SCHEMA_VERSION`：主仓 `src/audit/draft.py` grep 零命中——**常量不存在**，py 侧 ImportError 必崩；
+- `split_paragraph_infos`：存在（`draft.py:347`），但被 ImportError 遮蔽，无法实际调用；
+- `split_sentences`：存在（`draft.py:313`），同上。
+
+py `test_study.py::test_pov_schema_version`（期望空文本 AssertionError）是红测试
+（py 侧 ImportError 根本跑不到），未移植。
+
+Rust 面裁决：`study::pov::SCHEMA_VERSION = 1`（意图值；py 侧无真值可对齐）。
+`tests/study_tools.rs` 中 `pov_schema_version_is_one` 固化此值，并注明 py 参考损坏。
+
+## study-pov：density 恒 0（py 侧 ponytail 注释承认）
+
+py `pov.py:103-112`（ponytail 注释）：
+```python
+# ponytail: pronoun/name/attribution fields not populated by audit.draft ParagraphInfo;
+# all densities will be zero. Add when audit pipeline enriches paragraph info.
+"pronouns": [],
+"personal_names": [],
+"dialogue_attribution": 0,
+```
+`paragraph_info.get("pronouns", [])` 永远为空 → 三个密度函数均返回元组
+`(0, 0.0)`。Rust 面 `PoVObservation` 三字段类型 `(i64, f64)`（JSON 渲染
+`[0, 0.0]`，count 为 int、density 为 float，与 py 元组 JSON 形状逐位一致）。
+
+## study-pov：段落切分 `markdown_noise` 仅在句级生效
+
+Rust `TextSplitter::split_paragraph_infos` 与 py 同名函数一样
+**不**过滤 `markdown_noise_line` 匹配行（`#` 标题行计为普通段），
+`markdown_noise` 只在 `split_sentence_infos` 里起作用。
+py/rust 在含 `#` 标题的章节上段落切分结果一致（标题计为第 1 段）。

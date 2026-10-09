@@ -12,7 +12,7 @@ use std::process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use sentinel::{audit, config, consistency, reports, stats, tools};
+use sentinel::{audit, config, consistency, reports, stats, study, tools};
 
 /// 小说大纲/草稿审查与统计工具（Rust 重写）。
 #[derive(Parser)]
@@ -225,6 +225,21 @@ enum Command {
         /// 执行回写
         #[arg(long)]
         apply: bool,
+    },
+    /// 对比两份 analysis JSON，输出 Markdown 指标差异表（对应 Python `study.compare`）
+    StudyCompare {
+        /// 基线 analysis JSON
+        #[arg(required = true, value_name = "BASELINE")]
+        baseline: PathBuf,
+        /// 应用后 analysis JSON
+        #[arg(required = true, value_name = "APPLIED")]
+        applied: PathBuf,
+    },
+    /// 视角切分候选检测：逐段密度不变量 + 尾组（对应 Python `study.pov`）
+    StudyPov {
+        /// 章节 Markdown 文件
+        #[arg(required = true, value_name = "CHAPTER")]
+        chapter: PathBuf,
     },
 }
 
@@ -468,6 +483,25 @@ fn main() -> Result<()> {
             }
             if rc != 0 {
                 process::exit(rc);
+            }
+        }
+        Command::StudyCompare { baseline, applied } => {
+            match study::compare::run_compare(&baseline, &applied) {
+                Ok(table) => println!("{table}"),
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    process::exit(1);
+                }
+            }
+        }
+        Command::StudyPov { chapter } => {
+            let cfg = config::load_rules(&config::default_rules_path())?;
+            match study::pov::run_pov(&chapter, &cfg) {
+                Ok(json) => println!("{json}"),
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    process::exit(1);
+                }
             }
         }
     }
