@@ -156,7 +156,7 @@ fn check_apply_dry_round(variant: &str, catalog: &str, temp_root: &Path) {
     pin_cwd();
     let yaml = temp_root.join("rules-yaml.yaml");
     fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../configs/rules/review.yaml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("configs/rules/review.yaml"),
         &yaml,
     )
     .unwrap();
@@ -189,7 +189,7 @@ fn check_apply_writeback_round(variant: &str, catalog: &str, temp_root: &Path) {
     pin_cwd();
     let yaml = temp_root.join("rules-yaml.yaml");
     fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../configs/rules/review.yaml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("configs/rules/review.yaml"),
         &yaml,
     )
     .unwrap();

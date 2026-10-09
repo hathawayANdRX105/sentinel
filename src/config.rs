@@ -11,9 +11,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-/// 默认规则文件路径：`<crate>/../configs/rules/review.yaml`。
+/// 默认规则文件路径：`<repo root>/configs/rules/review.yaml`。
 pub fn default_rules_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../configs/rules/review.yaml")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("configs/rules/review.yaml")
 }
 
 /// 读取并解析规则文件。
