@@ -53,6 +53,7 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `study-compare` | 两份 analysis JSON 的 summary 数值指标差值表 |
 | `study-pov` | POV 漂移候选：确定性 JSON 输出（需人工复核，非结论） |
 | `consistency` | SQLite/FTS5 一致性索引：构建、查询与 13 个子命令 |
+| `jev-review` | Jev 语义精判（P0 原型）：读取 audit-draft JSON，按「AI 腔概率」排序命中句 |
 
 ## 规则配置
 
@@ -66,6 +67,35 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 | `draft.ending_labels` | 章末收束类型 |
 | `plan.required_headings` | 大纲必备标题 |
 | `plan.function_rules` | 章节/Scene/章末功能标签 |
+
+## Jev 语义精判（P0 原型）
+
+`jev-review` 把 `audit-draft --format json` 命中的样本句子批量提交给
+[Jev](https://github.com/jkudish/jev-mcp) 做语义判断（`jev_noul`：每句
+「是典型 AI 生成腔」的概率），按概率降序输出 top-N 值得改写的句子、
+来源与改写提示。这是 P0 验证原型：sentinel 核心规则层零改动，Jev 作为
+可选外部层，最终会演进为完整改写循环（P1）。
+
+```bash
+# 1) 先生成 analysis JSON
+cargo run --bin sentinel -- audit-draft path/to/ch01.md --format json -o /tmp/ch01.json
+
+# 2) 语义精判（凭据走环境变量，也可用 --base-url/--api-key/--model 覆盖）
+JEV_API_BASE_URL=https://…/v1/systemone \
+JEV_API_KEY=sk-... \
+cargo run --bin sentinel -- jev-review /tmp/ch01.json --top 10
+```
+
+环境变量：
+
+| 变量 | 说明 |
+|---|---|
+| `JEV_API_BASE_URL` | Jev 兼容端点（compatible provider，POST `{model,state,questions}`） |
+| `JEV_API_KEY` | Bearer 密钥 |
+| `JEV_MODEL` | 模型别名，默认 `jev-latest` |
+
+常用参数：`--top N`（输出前 N 句，默认 10）、`--limit N`（提交候选上限，
+`jev_noul` 单批上限 64）、`--output FILE`、`--json`。
 
 ## 测试与 golden 基线
 

@@ -226,6 +226,33 @@ enum Command {
         #[arg(long)]
         apply: bool,
     },
+    /// Jev 语义精判：读取 audit-draft JSON，按「AI 腔概率」排序命中句
+    JevReview {
+        /// audit-draft --format json 输出的 analysis JSON 文件
+        #[arg(required = true, value_name = "ANALYSIS")]
+        analysis: PathBuf,
+        /// 输出前 N 句（默认 10）
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// 最多提交给 Jev 的候选句数（jev_noul 单批上限 64）
+        #[arg(long, default_value_t = 64)]
+        limit: usize,
+        /// 覆盖 JEV_API_BASE_URL
+        #[arg(long, value_name = "URL")]
+        base_url: Option<String>,
+        /// 覆盖 JEV_API_KEY
+        #[arg(long, value_name = "KEY")]
+        api_key: Option<String>,
+        /// 覆盖 JEV_MODEL
+        #[arg(long, value_name = "MODEL")]
+        model: Option<String>,
+        /// 报告写出路径（默认 stdout）
+        #[arg(long, value_name = "FILE")]
+        output: Option<PathBuf>,
+        /// 以 JSON 输出结果
+        #[arg(long)]
+        json: bool,
+    },
     /// 对比两份 analysis JSON，输出 Markdown 指标差异表
     StudyCompare {
         /// 基线 analysis JSON
@@ -481,6 +508,31 @@ fn main() -> Result<()> {
             if let Some(text) = dry_run_text {
                 println!("{text}");
             }
+            if rc != 0 {
+                process::exit(rc);
+            }
+        }
+        Command::JevReview {
+            analysis,
+            top,
+            limit,
+            base_url,
+            api_key,
+            model,
+            output,
+            json,
+        } => {
+            let opts = tools::jev::JevReviewOptions {
+                analysis,
+                top,
+                limit,
+                base_url,
+                api_key,
+                model,
+                output,
+                json,
+            };
+            let rc = tools::jev::run(&opts)?;
             if rc != 0 {
                 process::exit(rc);
             }
