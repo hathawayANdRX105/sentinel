@@ -150,6 +150,9 @@ pub fn format_text_report(a: &Analysis, sample_limit: usize) -> String {
             line.push_str(&format!(", per_10k={}", float_repr(per_10k)));
         }
         line.push_str(&format!("  # {}", item.note));
+        if item.register != "neutral" {
+            line.push_str(&format!(" [{}]", item.register));
+        }
         if !item.sample.is_empty() {
             line.push_str(&format!(" | {}", item.sample));
         }

@@ -78,6 +78,7 @@ pub(crate) fn assemble_analysis(sections: AnalysisSections<'_>, source: &str) ->
                 count: m.count,
                 per_10k: Some(m.per_10k),
                 note: m.note.clone(),
+                register: m.register.clone(),
                 sample: first_snippet(&m.samples),
             });
         }
@@ -90,6 +91,7 @@ pub(crate) fn assemble_analysis(sections: AnalysisSections<'_>, source: &str) ->
                 count: m.count,
                 per_10k: Some(m.per_10k),
                 note: m.note.clone(),
+                register: "neutral".to_string(),
                 sample: first_snippet(&m.samples),
             });
         }
@@ -108,6 +110,7 @@ pub(crate) fn assemble_analysis(sections: AnalysisSections<'_>, source: &str) ->
                 count: m.count,
                 per_10k: Some(m.per_10k),
                 note: m.note.clone(),
+                register: "neutral".to_string(),
                 sample: first_snippet(&m.samples),
             });
         }
@@ -120,6 +123,7 @@ pub(crate) fn assemble_analysis(sections: AnalysisSections<'_>, source: &str) ->
                 count: m.count,
                 per_10k: Some(m.per_10k),
                 note: m.note.clone(),
+                register: "neutral".to_string(),
                 sample: first_snippet(&m.samples),
             });
         }
@@ -136,6 +140,7 @@ pub(crate) fn assemble_analysis(sections: AnalysisSections<'_>, source: &str) ->
             count,
             per_10k: None,
             note,
+            register: "neutral".to_string(),
             sample,
         });
     };
