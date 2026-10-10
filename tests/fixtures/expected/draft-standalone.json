@@ -20,6 +20,7 @@
         "per_10k": 0.0,
         "max_per_10k": 12.0,
         "note": "高频否定判断",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -29,6 +30,7 @@
         "per_10k": 0.0,
         "max_per_10k": 8.0,
         "note": "弱转折口头禅",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -38,6 +40,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "二分强调",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -47,6 +50,7 @@
         "per_10k": 78.53,
         "max_per_10k": 10.0,
         "note": "因果直说",
+        "register": "neutral",
         "warn": true,
         "samples": [
           {
@@ -61,6 +65,7 @@
         "per_10k": 0.0,
         "max_per_10k": 10.0,
         "note": "因果直说",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -70,6 +75,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "口语转折",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -79,6 +85,7 @@
         "per_10k": 0.0,
         "max_per_10k": 18.0,
         "note": "常见逆接",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -88,6 +95,7 @@
         "per_10k": 0.0,
         "max_per_10k": 8.0,
         "note": "流水账连接",
+        "register": "colloquial",
         "warn": false,
         "samples": []
       },
@@ -97,6 +105,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "流程化推进",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -106,6 +115,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.5,
         "note": "解释腔总结句",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -115,6 +125,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "高频比喻触发词",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -124,6 +135,7 @@
         "per_10k": 0.0,
         "max_per_10k": 7.0,
         "note": "抽象判断过渡",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -133,6 +145,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.0,
         "note": "修正型弱否定",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -142,6 +155,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.0,
         "note": "修正型弱否定",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -151,6 +165,7 @@
         "per_10k": 261.78,
         "max_per_10k": 120.0,
         "note": "功能词总量观察",
+        "register": "literary",
         "warn": true,
         "samples": [
           {
@@ -173,6 +188,7 @@
         "per_10k": 104.71,
         "max_per_10k": 170.0,
         "note": "功能词总量观察",
+        "register": "neutral",
         "warn": false,
         "samples": [
           {
@@ -714,6 +730,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.5,
         "note": "Pi 输出像系统状态栏，容易挤掉角色反应",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -723,6 +740,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.0,
         "note": "Pi 像按钮确认框，削弱搭档感",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -732,6 +750,7 @@
         "per_10k": 0.0,
         "max_per_10k": 18.0,
         "note": "线索被面板词收拢时，场面会像任务列表",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -741,6 +760,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.0,
         "note": "短结论对会替读者完成推理",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -750,6 +770,7 @@
         "per_10k": 26.18,
         "max_per_10k": 8.0,
         "note": "肯定判断和解释腔过密时，旁白会替场面下结论",
+        "register": "neutral",
         "warn": true,
         "samples": [
           {
@@ -764,6 +785,7 @@
         "per_10k": 0.0,
         "max_per_10k": 60.0,
         "note": "把字句过密时，场面容易变成操作日志",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -773,6 +795,7 @@
         "per_10k": 0.0,
         "max_per_10k": 18.0,
         "note": "比喻模板过密时，旁白会替代真实动作",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -782,6 +805,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "典型模板对照句",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -791,6 +815,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "AI 感较强的软转折",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -800,6 +825,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.5,
         "note": "并列否定反复使用会发木",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -809,6 +835,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.0,
         "note": "先肯定再自我转折",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -818,6 +845,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "否定后再拉回主判断",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -827,6 +855,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "程度句式连续出现会模板化",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -836,6 +865,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.5,
         "note": "并列对照或定义句",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -845,6 +875,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.5,
         "note": "明喻模板",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -854,6 +885,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "明喻模板",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -863,6 +895,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "程度强化模板",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -872,6 +905,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "课堂总结式判断句",
+        "register": "neutral",
         "warn": false,
         "samples": []
       }
@@ -883,6 +917,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.0,
         "note": "解释型起手",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -892,6 +927,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.0,
         "note": "课堂判断句",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -901,6 +937,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "判断先于场面",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -910,6 +947,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "软修正骨架",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -919,6 +957,7 @@
         "per_10k": 0.0,
         "max_per_10k": 7.0,
         "note": "抽象过渡",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -928,6 +967,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "保守判断口头禅",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -937,6 +977,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "突发提示词",
+        "register": "neutral",
         "warn": false,
         "samples": []
       }
@@ -948,6 +989,7 @@
         "per_10k": 26.18,
         "max_per_10k": 6.0,
         "note": "黏糊副词，容易把动作写虚",
+        "register": "neutral",
         "warn": true,
         "samples": [
           {
@@ -962,6 +1004,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "黏糊副词，容易削弱力度",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -971,6 +1014,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "推进副词重复会拖慢节奏",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -980,6 +1024,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "弱判断口头禅",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -989,6 +1034,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.5,
         "note": "程度补语过密会发腻",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -998,6 +1044,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "趋势句式重复",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1007,6 +1054,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "作者替场面下判断",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1016,6 +1064,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.0,
         "note": "说明腔强判断",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1025,6 +1074,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "保守强调词",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1034,6 +1084,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.0,
         "note": "双层弱否定",
+        "register": "neutral",
         "warn": false,
         "samples": []
       }
@@ -1045,6 +1096,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "感叹号过多会显得用力过猛",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1054,6 +1106,7 @@
         "per_10k": 26.18,
         "max_per_10k": 10.0,
         "note": "问号过多会把对话写成盘问",
+        "register": "neutral",
         "warn": true,
         "samples": [
           {
@@ -1068,6 +1121,7 @@
         "per_10k": 0.0,
         "max_per_10k": 10.0,
         "note": "省略号容易养成口头禅",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1077,6 +1131,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "破折号太多会拉出解释腔",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1086,6 +1141,7 @@
         "per_10k": 26.18,
         "max_per_10k": 18.0,
         "note": "冒号过多常见于说明式文本",
+        "register": "neutral",
         "warn": true,
         "samples": [
           {
@@ -1102,6 +1158,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.5,
         "note": "强情绪标点组合",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1111,6 +1168,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.0,
         "note": "双感叹号",
+        "register": "neutral",
         "warn": false,
         "samples": []
       },
@@ -1120,6 +1178,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.0,
         "note": "双问号",
+        "register": "neutral",
         "warn": false,
         "samples": []
       }
@@ -2097,6 +2156,7 @@
         "count": 10,
         "per_10k": 261.78,
         "note": "功能词总量观察",
+        "register": "literary",
         "sample": "\"不得不走。\"林越苦笑了一下，\"留下来，只会连累你们。\""
       },
       {
@@ -2105,6 +2165,7 @@
         "count": 6,
         "per_10k": 157.07,
         "note": "从现有草稿复盘出的 AA/BB 式短排比；场景铺陈和情绪加压可留少量，连续两段以上再视作清单化风险",
+        "register": "neutral",
         "sample": "\"不得不走。\"林越苦笑了一下，\"留下来，只会连累你们。\""
       },
       {
@@ -2113,6 +2174,7 @@
         "count": 6,
         "per_10k": null,
         "note": "短句过多时需要判断是节奏控制还是内容没写开",
+        "register": "neutral",
         "sample": "L5 5字：\"你真的要走"
       },
       {
@@ -2121,6 +2183,7 @@
         "count": 3,
         "per_10k": null,
         "note": "主语起手重复",
+        "register": "neutral",
         "sample": ""
       },
       {
@@ -2129,6 +2192,7 @@
         "count": 3,
         "per_10k": 78.53,
         "note": "因果直说",
+        "register": "neutral",
         "sample": "可能是因为天气不好，可能是因为心情不好，可能是因为时间不够。他缓缓地转过身去，嘴角微微上扬，眼中闪过一丝复杂的情绪。"
       },
       {
@@ -2137,6 +2201,7 @@
         "count": 2,
         "per_10k": null,
         "note": "连续短句会把叙述切成机械节拍；类型：对白 x3，动作 x1，其他 x1；建议：保留最锋利的一两句，其余用动作、环境声或第三方反应打断。",
+        "register": "neutral",
         "sample": "林越站在门口，缓缓点了点头 | 他心中暗道，此事必有蹊跷 | \"你真的要走 | \"苏晚盯着他的眼睛，语气平静 | \"不得不走"
       },
       {
@@ -2145,6 +2210,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "AA/AABB/ABAB式重叠词；少量能提供口气和质感，密集回收才判为手癖",
+        "register": "neutral",
         "sample": "雨还在下，淅淅沥沥地下着。街道上空无一人，只有路灯在雨中散发着昏黄的光。林越走进雨中，身影渐渐消失在街道尽头。"
       },
       {
@@ -2153,6 +2219,7 @@
         "count": 1,
         "per_10k": null,
         "note": "连续对白缺少动作、环境、第三方或设备转轴；插入动作、环境变化、第三方打断或设备声，让对白改变场面。",
+        "register": "neutral",
         "sample": "\"大人，人已经到了 | \"侍卫低声禀报 | \"带上来 | \"林越淡淡道，\"记住，不要伤及无辜"
       },
       {
@@ -2161,6 +2228,7 @@
         "count": 1,
         "per_10k": null,
         "note": "短句、判断、把字句、角色起手等问题在局部连续叠加；类型：对白 x3，判断 x1，其他 x1；建议：保留最锋利的一两句，其余用动作、环境声或第三方反应打断。",
+        "register": "neutral",
         "sample": "林越负手立于城楼之上，俯瞰着下方的车水马龙 | 嘴角勾起一抹弧度，这是一个强者对弱者的俯视 | \"大人，人已经到了 | \"侍卫低声禀报 | \"带上来"
       },
       {
@@ -2169,6 +2237,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "黏糊副词，容易把动作写虚",
+        "register": "neutral",
         "sample": "可能是因为天气不好，可能是因为心情不好，可能是因为时间不够。他缓缓地转过身去，嘴角微微上扬，眼中闪过一丝复杂的情绪。"
       },
       {
@@ -2177,6 +2246,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "肯定判断和解释腔过密时，旁白会替场面下结论",
+        "register": "neutral",
         "sample": "三日后，京城。林越负手立于城楼之上，俯瞰着下方的车水马龙。嘴角勾起一抹弧度，这是一个强者对弱者的俯视。"
       },
       {
@@ -2185,6 +2255,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "冒号过多常见于说明式文本",
+        "register": "neutral",
         "sample": "苏晚站在原地，沉默良久。终于，她轻声说道：\"那就，后会有期。\""
       },
       {
@@ -2193,6 +2264,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "问号过多会把对话写成盘问",
+        "register": "neutral",
         "sample": "\"你真的要走？\"苏晚盯着他的眼睛，语气平静。"
       },
       {
@@ -2201,6 +2273,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "弱化动作的小尾巴，过多会发黏",
+        "register": "neutral",
         "sample": "\"不得不走。\"林越苦笑了一下，\"留下来，只会连累你们。\""
       },
       {
@@ -2209,6 +2282,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "语气副词过密会削弱真正的低声场面",
+        "register": "neutral",
         "sample": "\"大人，人已经到了。\"侍卫低声禀报。"
       },
       {
@@ -2217,6 +2291,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "黏糊副词高频时，动作会越来越虚",
+        "register": "neutral",
         "sample": "可能是因为天气不好，可能是因为心情不好，可能是因为时间不够。他缓缓地转过身去，嘴角微微上扬，眼中闪过一丝复杂的情绪。"
       },
       {
@@ -2225,6 +2300,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "人物状态描写容易模板化",
+        "register": "neutral",
         "sample": "\"不得不走。\"林越苦笑了一下，\"留下来，只会连累你们。\""
       }
     ],

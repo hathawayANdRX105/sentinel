@@ -237,6 +237,9 @@ pub fn format_markdown_report(a: &Analysis, title: Option<&str>) -> String {
             if let Some(per_10k) = item.per_10k {
                 line.push_str(&format!("；per_10k=`{}`", float_repr(per_10k)));
             }
+            if item.register != "neutral" {
+                line.push_str(&format!("；语域=`{}`", item.register));
+            }
             if !item.sample.is_empty() {
                 line.push_str(&format!("；样例：{}", item.sample));
             }

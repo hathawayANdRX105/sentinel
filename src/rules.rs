@@ -96,9 +96,11 @@ pub fn find_hits(pattern: &Regex, lines: &[String], sample_limit: usize) -> (usi
 pub struct CompiledRule {
     pub name: String,
     pub label: Option<String>,
-    pub regex: Regex,
+    pub regex: fancy_regex::Regex,
     pub max_per_10k: f64,
     pub note: String,
+    /// 语域标签（`colloquial`/`literary`/`neutral`），缺省 neutral。
+    pub register: String,
 }
 
 impl CompiledRule {
@@ -112,6 +114,10 @@ impl CompiledRule {
             regex,
             max_per_10k: rule.max_per_10k,
             note: rule.note.clone().unwrap_or_default(),
+            register: rule
+                .register
+                .clone()
+                .unwrap_or_else(|| "neutral".to_string()),
         })
     }
 
@@ -129,6 +135,8 @@ pub struct RegexMetric {
     pub per_10k: f64,
     pub max_per_10k: f64,
     pub note: String,
+    /// 规则语域（`colloquial`/`literary`/`neutral`）。
+    pub register: String,
     pub warn: bool,
     pub samples: Vec<Hit>,
 }
@@ -159,6 +167,7 @@ pub fn build_rule_metrics(
             per_10k: round2(per_10k_raw),
             max_per_10k: rule.max_per_10k,
             note: rule.note.clone(),
+            register: rule.register.clone(),
             warn: flag,
             samples,
         });

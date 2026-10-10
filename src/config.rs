@@ -72,6 +72,12 @@ pub struct RegexRule {
     pub label: Option<String>,
     #[serde(default)]
     pub note: Option<String>,
+    /// 语域标签：`colloquial`（口语体）/ `literary`（文学体）/ `neutral`。
+    /// 来自真语料矩阵校验：文学与轻小说的正常用法在 colloquial 规则上
+    /// 大量误报（鲁迅「不」15 次、「却」7 次）。报告携带此标签，
+    /// 让评审按作品实际语域判读，而不是一律当 AI 腔。
+    #[serde(default)]
+    pub register: Option<String>,
 }
 
 /// 模板规则，同时用于 `template_rules` 与 `inactive_template_candidates`。

@@ -381,6 +381,9 @@ pub struct HardFlag {
     pub count: usize,
     pub per_10k: Option<f64>,
     pub note: String,
+    /// 规则语域（`colloquial`/`literary`/`neutral`）；非规则来源（如
+    /// learned_filters/tracked_terms）为 neutral。
+    pub register: String,
     pub sample: String,
 }
 

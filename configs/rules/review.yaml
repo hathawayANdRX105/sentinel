@@ -29,10 +29,12 @@ draft:
       pattern: 却
       max_per_10k: 18.0
       note: 常见逆接
+      register: literary
     - name: 然后
       pattern: 然后
       max_per_10k: 8.0
       note: 流水账连接
+      register: colloquial
     - name: 于是
       pattern: 于是
       max_per_10k: 5.0
@@ -61,6 +63,7 @@ draft:
       pattern: 不
       max_per_10k: 120.0
       note: 功能词总量观察
+      register: literary
     - name: 是
       pattern: 是
       max_per_10k: 170.0
