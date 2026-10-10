@@ -657,6 +657,22 @@ draft:
     noise_chars:
     - 了
     - 的
+    attribution_suffixes:
+    - 道
+    - 说
+    - 问
+    - 曰
+    - 念
+    - 听
+    - 笑
+    - 叹
+    - 喝
+    - 叫
+    - 吼
+    - 喊
+    - 嘟囔
+    - 回答
+    - 吩咐
   markdown_noise_line:
     pattern: '^\s*(?:#|\||[-*]\s*(?:状态|所属分类|卡片 ID|别名|首次生效|当前位置|时间线状态|关联卡片|看点|状态变化|伏笔动作|节奏|本章功能|章节钩子|推荐章数|定位|核心冲突|核心事件|章数|Scene|字段|章节|目的)[:：])'
   connective_sentence_patterns:

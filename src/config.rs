@@ -127,6 +127,12 @@ pub struct LearnedTermWindow {
     pub noise_suffixes: Vec<String>,
     pub noise_prefixes: Vec<String>,
     pub noise_chars: Vec<String>,
+    /// 归因句尾缀：分句以此为结尾时视为话语归因（「段誉道」「他说」），
+    /// 不参与 `clause_prefixes` 分句骨架重复统计。来自扩展真语料矩阵：
+    /// 归因形态在人写经典（天龙 55%/围城 50%）与 AI 章（约 40%）占比相近，
+    /// 无判别力，却是人写长篇 learned 标记的最大来源（天龙 22 条里 16 条）。
+    #[serde(default)]
+    pub attribution_suffixes: Vec<String>,
 }
 
 /// Markdown 噪音行正则，对应 `draft.markdown_noise_line`。

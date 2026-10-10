@@ -44,6 +44,34 @@ prose 归并 literary。
 修正 PR #9 两处过窄标注：`不`（literary→common，散文 211/网文 161/古典 160 也命中）、
 `然后`（colloquial→三类别，文学 33.8 才是最高）。
 
+### D. learned 重复节（clause_prefixes）：归因句无判别力，已豁免
+
+扩展矩阵的第二类发现：`clause_prefixes` 等 learned 重复节在长人写文本上
+成片触发，根因是收集器只要求绝对次数（`count >= 4`）、无密度归一，
+且**不过滤话语归因句**：
+
+| 源 | chars | clause_prefixes 条数 | 归因形态占比 |
+|---|---|---|---|
+| 天龙八部 ch1 | 23065 | 22 | 55%（段誉道 x39、说道 x33、笑道 x33…） |
+| 围城 ch1 | 14851 | 2 | 50% |
+| 红楼梦 ch1 | 7794 | 4 | 25% |
+| novel1 AI 章 | 2249–3987 | 1–4 | 约 40%（他说/她说） |
+
+归因占比在人写与 AI 之间持平 → 无判别力；但它占了人写长篇 flag 的大头。
+而 AI 的真信号是**裸人名重复起手**（ch12「亚历克斯」x14 ≈ 47/万字、
+ch06「工作人员」/「拐杖男人」x9），天龙的人名项密度仅 1.7–3.5/万字。
+
+修复：`learned_term_window.attribution_suffixes`（yaml 配置，Rust 无硬编码词表）
+在 `collect_clause_prefixes` 里滤除以这些尾缀结尾的分句。效果（重跑矩阵实测）：
+
+- 天龙 22 → 7 条（段誉道/说道/钟灵道/那少女道等移除）；
+- 围城 2 → 1，红楼梦 4 → 3；
+- AI 章保留全部裸人名信号（亚历克斯 x14 → x11，仅「亚历克斯说」形态被滤）。
+
+已知遗留（本次不动，数值已记录）：`short_phrases`（说道/笑道/也不等库存短语）
+与 `aa_bb_patterns` 仍是 learned 体积大头，其过滤要改 ngram 收集器，
+影响面到 tracked_term 窗口，需单独评估。
+
 ### C. 噪声源（learned 项，逐源自学习，跨源不可比）
 
 `aa_bb_patterns:*`（短分句排比 60+ 变体）、`clause_prefixes:*`、`short_phrases:*`、

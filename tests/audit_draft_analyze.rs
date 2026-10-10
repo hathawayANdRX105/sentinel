@@ -49,3 +49,54 @@ fn ngram_terms_keep_maximal_repetition() {
         &terms[..terms.len().min(8)]
     );
 }
+
+/// 归因句豁免钉住用例（来自扩展真语料矩阵，见 configs/rules/REGISTER-MATRIX.md）：
+/// 话语归因（「段誉道」「他说」）在人写经典与 AI 章出现占比相近、无判别力，
+/// 但曾是人写长篇 clause_prefixes 标记的最大来源（天龙 22 条里 16 条）。
+/// 归因形态必须被 `learned_term_window.attribution_suffixes` 滤掉；
+/// 人名裸重复（AI 的「亚历克斯」型信号）必须保留。
+#[test]
+fn clause_prefixes_skip_attribution_leads() {
+    let rules = load_rules(&default_rules_path()).expect("默认规则文件应可加载");
+    let ctx = DraftContext::new(rules.clone()).expect("DraftContext 应可装配");
+    let template_bank = build_template_bank(ctx.draft_rules());
+    let term_bank = ctx.draft_rules().tracked_terms.clone();
+
+    let attribution =
+        "段誉道：休得无礼。\n段誉道：得罪了。\n段誉道：小心。\n段誉道：来吧。\n段誉道：看招。\n";
+    let analysis = analyze_text(
+        &ctx,
+        attribution,
+        "attr",
+        &template_bank,
+        &term_bank,
+        None,
+        3,
+    )
+    .expect("analyze_text 不应报错");
+    assert!(
+        analysis.clause_prefixes.is_empty(),
+        "纯归因句不应进 clause_prefixes，实际 {:?}",
+        analysis.clause_prefixes
+    );
+
+    let name_lead = "亚历克斯把门关上。\n".repeat(5);
+    let analysis = analyze_text(
+        &ctx,
+        &name_lead,
+        "name",
+        &template_bank,
+        &term_bank,
+        None,
+        3,
+    )
+    .expect("analyze_text 不应报错");
+    assert!(
+        analysis
+            .clause_prefixes
+            .iter()
+            .any(|p| p.phrase == "亚历克斯"),
+        "人名裸重复必须保留（AI 重复起手信号），实际 {:?}",
+        analysis.clause_prefixes
+    );
+}

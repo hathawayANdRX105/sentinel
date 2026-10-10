@@ -49,10 +49,10 @@
 - `ch01-冷线.md` warn_sections=`7` ending=`意象压轴` top=`终端 x1, 抬头 x1, 停在 x2` fatigue=`像/活像比喻 x1, 局部疲劳窗口 x3, 把字操作句 x2, 短句/极短句 x14, 高频词/点名册 x5`
 
 ## pairs
-- `ch01-冷线-ch02-水声.md` status=`WARN` warn_sections=`13` chars=`426` endings=`意象压轴 -> 意象压轴`
+- `ch01-冷线-ch02-水声.md` status=`WARN` warn_sections=`12` chars=`426` endings=`意象压轴 -> 意象压轴`
 
 ### pairs-priority
-- `ch01-冷线-ch02-水声.md` warn_sections=`13` endings=`意象压轴 -> 意象压轴` repeated=`意象压轴 x2` top=`终端 x1, 抬头 x1, 看着 x1` fatigue=`像/活像比喻 x2, 对白乒乓 x2, 局部疲劳窗口 x6, 把字操作句 x5, 短句/极短句 x36, 角色名/他她起手 x13, 陈词/解释腔 x1, 高频词/点名册 x6`
+- `ch01-冷线-ch02-水声.md` warn_sections=`12` endings=`意象压轴 -> 意象压轴` repeated=`意象压轴 x2` top=`终端 x1, 抬头 x1, 看着 x1` fatigue=`像/活像比喻 x2, 对白乒乓 x2, 局部疲劳窗口 x6, 把字操作句 x5, 短句/极短句 x36, 角色名/他她起手 x13, 陈词/解释腔 x1, 高频词/点名册 x6`
 
 ## triples
 - 无
