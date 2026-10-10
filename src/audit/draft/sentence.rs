@@ -532,10 +532,17 @@ pub(crate) fn collect_clause_prefixes(
     sentences: &[String],
 ) -> Vec<(String, usize)> {
     let mut counts = Counter::default();
+    let attribution = ctx.learned_window().attribution_suffixes.as_slice();
     for sentence in sentences {
         for clause in split_clauses(ctx, sentence) {
             let lead = lstrip_chars(&clause, LEADING_PUNCT);
             if code_len(lead) < 2 {
+                continue;
+            }
+            // 话语归因（「段誉道」「他说」）在各语域都是正常小说设备，矩阵显示
+            // 人写经典与 AI 章的出现占比相近、无判别力，却是人写长篇 learned
+            // 标记的主要来源，故不进分句骨架重复统计。
+            if attribution.iter().any(|s| lead.ends_with(s.as_str())) {
                 continue;
             }
             counts.add(&prefix_chars(lead, 4));

@@ -52,10 +52,10 @@
 - `ch04-旧闸.md` warn_sections=`11` ending=`意象压轴` top=`终端 x1, 屏幕 x1, 一下 x2` fatigue=`对白乒乓 x1, 局部疲劳窗口 x5, 把字操作句 x3, 短句/极短句 x29, 章末模板 x3, 线索面板句 x1, 角色名/他她起手 x11, 高频词/点名册 x4`
 
 ## pairs
-- `ch03-灰港-ch04-旧闸.md` status=`WARN` warn_sections=`16` chars=`749` endings=`意象压轴 -> 意象压轴`
+- `ch03-灰港-ch04-旧闸.md` status=`WARN` warn_sections=`15` chars=`749` endings=`意象压轴 -> 意象压轴`
 
 ### pairs-priority
-- `ch03-灰港-ch04-旧闸.md` warn_sections=`16` endings=`意象压轴 -> 意象压轴` repeated=`意象压轴 x2` top=`终端 x4, 一下 x3, 因为 x1` fatigue=`对白乒乓 x2, 局部疲劳窗口 x6, 把字操作句 x9, 短句/极短句 x73, 章末模板 x3, 线索面板句 x2, 视角锚点 x0, 角色名/他她起手 x30, 角色声音 x11, 高频词/点名册 x7`
+- `ch03-灰港-ch04-旧闸.md` warn_sections=`15` endings=`意象压轴 -> 意象压轴` repeated=`意象压轴 x2` top=`终端 x4, 一下 x3, 因为 x1` fatigue=`对白乒乓 x2, 局部疲劳窗口 x6, 把字操作句 x9, 短句/极短句 x73, 章末模板 x3, 线索面板句 x2, 视角锚点 x0, 角色名/他她起手 x30, 角色声音 x11, 高频词/点名册 x7`
 
 ## triples
 - 无
