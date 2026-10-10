@@ -99,7 +99,8 @@ pub struct CompiledRule {
     pub regex: fancy_regex::Regex,
     pub max_per_10k: f64,
     pub note: String,
-    /// 语域标签（`colloquial`/`literary`/`neutral`），缺省 neutral。
+    /// 语域标签（`colloquial`/`literary`/`classical`/`lightnovel`/`webnovel`/
+    /// `common`，可逗号组合），缺省 neutral。
     pub register: String,
 }
 
@@ -135,7 +136,7 @@ pub struct RegexMetric {
     pub per_10k: f64,
     pub max_per_10k: f64,
     pub note: String,
-    /// 规则语域（`colloquial`/`literary`/`neutral`）。
+    /// 规则语域（见 `RegexRule::register`；非规则来源的指标为 neutral）。
     pub register: String,
     pub warn: bool,
     pub samples: Vec<Hit>,

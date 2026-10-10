@@ -64,12 +64,21 @@ just smoke audit-draft tests/fixtures/draft/standalone.md --format text
 
 | 段 | 用途 |
 |---|---|
-| `draft.regex_rules` | 高频词、句式、标点 |
+| `draft.regex_rules` | 高频词、句式、标点；可带 `register` 语域标签（见下文） |
 | `draft.template_rules` | 可维护模板库 |
 | `draft.tracked_terms` | 跟踪词库 |
 | `draft.ending_labels` | 章末收束类型 |
 | `plan.required_headings` | 大纲必备标题 |
 | `plan.function_rules` | 章节/Scene/章末功能标签 |
+
+### register 语域标签
+
+`regex_rules` 各段可带 `register`：`colloquial` / `literary` / `classical` /
+`lightnovel` / `webnovel` / `common` / `neutral`（缺省），逗号表示组合。命中带该
+标签的规则时报告会显示（text `[literary]`、markdown `语域=literary`）：命中在对应
+语域是人类正常用法，不一律当 AI 腔。标签由真语料矩阵校验得出（文学/散文/古典/
+轻小说/三个网文子类 vs 42 章 AI 锚点，按每万字强度归一），判定方法与被标注规则
+清单见 `configs/rules/REGISTER-MATRIX.md`。
 
 ## 风格化生成（风格画像 / 设定卡 / 文字冒险）
 

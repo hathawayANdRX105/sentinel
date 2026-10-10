@@ -20,7 +20,7 @@
         "per_10k": 0.0,
         "max_per_10k": 12.0,
         "note": "高频否定判断",
-        "register": "neutral",
+        "register": "literary,webnovel",
         "warn": false,
         "samples": []
       },
@@ -30,7 +30,7 @@
         "per_10k": 0.0,
         "max_per_10k": 8.0,
         "note": "弱转折口头禅",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -40,7 +40,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "二分强调",
-        "register": "neutral",
+        "register": "webnovel",
         "warn": false,
         "samples": []
       },
@@ -50,7 +50,7 @@
         "per_10k": 78.53,
         "max_per_10k": 10.0,
         "note": "因果直说",
-        "register": "neutral",
+        "register": "common",
         "warn": true,
         "samples": [
           {
@@ -65,7 +65,7 @@
         "per_10k": 0.0,
         "max_per_10k": 10.0,
         "note": "因果直说",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -75,7 +75,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "口语转折",
-        "register": "neutral",
+        "register": "common",
         "warn": false,
         "samples": []
       },
@@ -95,7 +95,7 @@
         "per_10k": 0.0,
         "max_per_10k": 8.0,
         "note": "流水账连接",
-        "register": "colloquial",
+        "register": "literary,lightnovel,webnovel",
         "warn": false,
         "samples": []
       },
@@ -105,7 +105,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "流程化推进",
-        "register": "neutral",
+        "register": "literary,webnovel",
         "warn": false,
         "samples": []
       },
@@ -125,7 +125,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "高频比喻触发词",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -165,7 +165,7 @@
         "per_10k": 261.78,
         "max_per_10k": 120.0,
         "note": "功能词总量观察",
-        "register": "literary",
+        "register": "common",
         "warn": true,
         "samples": [
           {
@@ -188,7 +188,7 @@
         "per_10k": 104.71,
         "max_per_10k": 170.0,
         "note": "功能词总量观察",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": [
           {
@@ -795,7 +795,7 @@
         "per_10k": 0.0,
         "max_per_10k": 18.0,
         "note": "比喻模板过密时，旁白会替代真实动作",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -805,7 +805,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "典型模板对照句",
-        "register": "neutral",
+        "register": "literary,lightnovel,webnovel",
         "warn": false,
         "samples": []
       },
@@ -825,7 +825,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.5,
         "note": "并列否定反复使用会发木",
-        "register": "neutral",
+        "register": "webnovel",
         "warn": false,
         "samples": []
       },
@@ -835,7 +835,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.0,
         "note": "先肯定再自我转折",
-        "register": "neutral",
+        "register": "webnovel",
         "warn": false,
         "samples": []
       },
@@ -845,7 +845,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "否定后再拉回主判断",
-        "register": "neutral",
+        "register": "literary,lightnovel,webnovel",
         "warn": false,
         "samples": []
       },
@@ -875,7 +875,7 @@
         "per_10k": 0.0,
         "max_per_10k": 3.5,
         "note": "明喻模板",
-        "register": "neutral",
+        "register": "literary,webnovel",
         "warn": false,
         "samples": []
       },
@@ -905,7 +905,7 @@
         "per_10k": 0.0,
         "max_per_10k": 5.0,
         "note": "课堂总结式判断句",
-        "register": "neutral",
+        "register": "literary,webnovel",
         "warn": false,
         "samples": []
       }
@@ -917,7 +917,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.0,
         "note": "解释型起手",
-        "register": "neutral",
+        "register": "webnovel",
         "warn": false,
         "samples": []
       },
@@ -957,7 +957,7 @@
         "per_10k": 0.0,
         "max_per_10k": 7.0,
         "note": "抽象过渡",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -1014,7 +1014,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "推进副词重复会拖慢节奏",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -1044,7 +1044,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "趋势句式重复",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       },
@@ -1084,7 +1084,7 @@
         "per_10k": 0.0,
         "max_per_10k": 2.0,
         "note": "双层弱否定",
-        "register": "neutral",
+        "register": "literary",
         "warn": false,
         "samples": []
       }
@@ -1096,7 +1096,7 @@
         "per_10k": 0.0,
         "max_per_10k": 6.0,
         "note": "感叹号过多会显得用力过猛",
-        "register": "neutral",
+        "register": "common",
         "warn": false,
         "samples": []
       },
@@ -1106,7 +1106,7 @@
         "per_10k": 26.18,
         "max_per_10k": 10.0,
         "note": "问号过多会把对话写成盘问",
-        "register": "neutral",
+        "register": "common",
         "warn": true,
         "samples": [
           {
@@ -1121,7 +1121,7 @@
         "per_10k": 0.0,
         "max_per_10k": 10.0,
         "note": "省略号容易养成口头禅",
-        "register": "neutral",
+        "register": "literary,lightnovel",
         "warn": false,
         "samples": []
       },
@@ -1131,7 +1131,7 @@
         "per_10k": 0.0,
         "max_per_10k": 4.0,
         "note": "破折号太多会拉出解释腔",
-        "register": "neutral",
+        "register": "literary,lightnovel",
         "warn": false,
         "samples": []
       },
@@ -1141,7 +1141,7 @@
         "per_10k": 26.18,
         "max_per_10k": 18.0,
         "note": "冒号过多常见于说明式文本",
-        "register": "neutral",
+        "register": "common",
         "warn": true,
         "samples": [
           {
@@ -1158,7 +1158,7 @@
         "per_10k": 0.0,
         "max_per_10k": 1.5,
         "note": "强情绪标点组合",
-        "register": "neutral",
+        "register": "lightnovel",
         "warn": false,
         "samples": []
       },
@@ -2156,7 +2156,7 @@
         "count": 10,
         "per_10k": 261.78,
         "note": "功能词总量观察",
-        "register": "literary",
+        "register": "common",
         "sample": "\"不得不走。\"林越苦笑了一下，\"留下来，只会连累你们。\""
       },
       {
@@ -2192,7 +2192,7 @@
         "count": 3,
         "per_10k": 78.53,
         "note": "因果直说",
-        "register": "neutral",
+        "register": "common",
         "sample": "可能是因为天气不好，可能是因为心情不好，可能是因为时间不够。他缓缓地转过身去，嘴角微微上扬，眼中闪过一丝复杂的情绪。"
       },
       {
@@ -2255,7 +2255,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "冒号过多常见于说明式文本",
-        "register": "neutral",
+        "register": "common",
         "sample": "苏晚站在原地，沉默良久。终于，她轻声说道：\"那就，后会有期。\""
       },
       {
@@ -2264,7 +2264,7 @@
         "count": 1,
         "per_10k": 26.18,
         "note": "问号过多会把对话写成盘问",
-        "register": "neutral",
+        "register": "common",
         "sample": "\"你真的要走？\"苏晚盯着他的眼睛，语气平静。"
       },
       {
