@@ -5,26 +5,32 @@ draft:
       pattern: 不是
       max_per_10k: 12.0
       note: 高频否定判断
+      register: literary,webnovel
     - name: 只是
       pattern: 只是
       max_per_10k: 8.0
       note: 弱转折口头禅
+      register: literary
     - name: 而是
       pattern: 而是
       max_per_10k: 6.0
       note: 二分强调
+      register: webnovel
     - name: 因为
       pattern: 因为
       max_per_10k: 10.0
       note: 因果直说
+      register: common
     - name: 所以
       pattern: 所以
       max_per_10k: 10.0
       note: 因果直说
+      register: literary
     - name: 可是
       pattern: 可是
       max_per_10k: 6.0
       note: 口语转折
+      register: common
     - name: 却
       pattern: 却
       max_per_10k: 18.0
@@ -34,11 +40,12 @@ draft:
       pattern: 然后
       max_per_10k: 8.0
       note: 流水账连接
-      register: colloquial
+      register: literary,lightnovel,webnovel
     - name: 于是
       pattern: 于是
       max_per_10k: 5.0
       note: 流程化推进
+      register: literary,webnovel
     - name: 问题在于
       pattern: 问题在于
       max_per_10k: 2.5
@@ -47,6 +54,7 @@ draft:
       pattern: 仿佛
       max_per_10k: 6.0
       note: 高频比喻触发词
+      register: literary
     - name: 像是
       pattern: 像是
       max_per_10k: 7.0
@@ -63,11 +71,12 @@ draft:
       pattern: 不
       max_per_10k: 120.0
       note: 功能词总量观察
-      register: literary
+      register: common
     - name: 是
       pattern: 是
       max_per_10k: 170.0
       note: 功能词总量观察
+      register: literary
     patterns:
     - name: pi_status_bar
       label: Pi竖线状态栏
@@ -104,11 +113,13 @@ draft:
       pattern: (?:活像|像是|像[^，。！？\n]{0,16}(?:一样|似的|似|有人|一块|一头|一根|一道|一只))
       max_per_10k: 18.0
       note: 比喻模板过密时，旁白会替代真实动作
+      register: literary
     - name: negation_contrast
       label: 不是A而是B
       pattern: 不是[^。！？\n]{0,40}(?:而是|是)[^。！？\n]{0,40}
       max_per_10k: 4.0
       note: 典型模板对照句
+      register: literary,lightnovel,webnovel
     - name: negation_soft_turn
       label: 不是A只是B/更像B
       pattern: 不是[^。！？\n]{0,40}(?:只是|更像|倒像|倒是|问题在于)[^。！？\n]{0,40}
@@ -119,16 +130,19 @@ draft:
       pattern: 没有[^。！？\n]{0,24}也没有[^。！？\n]{0,24}
       max_per_10k: 2.5
       note: 并列否定反复使用会发木
+      register: webnovel
     - name: affirm_then_negative
       label: 肯定后否定
       pattern: (?:当然|确实|的确|明明)[^。！？\n]{0,30}不(?:是|会|能|该|像)
       max_per_10k: 3.0
       note: 先肯定再自我转折
+      register: webnovel
     - name: negative_then_affirm
       label: 否定后肯定
       pattern: 不(?:是|会|能|该)[^。！？\n]{0,30}(?:而是|反而|却|倒)
       max_per_10k: 4.0
       note: 否定后再拉回主判断
+      register: literary,lightnovel,webnovel
     - name: degree_to_extent
       label: 高到/近到/痛得
       pattern: '[\u4e00-\u9fffA-Za-z]{1,12}(?:高到|近到|低到|冷到|痛得|热得|亮得|黑得|静得|吵得)[^。！？\n]{0,28}'
@@ -144,6 +158,7 @@ draft:
       pattern: 像[^。！？\n]{0,24}一样
       max_per_10k: 3.5
       note: 明喻模板
+      register: literary,webnovel
     - name: simile_side
       label: 像……似的/那样
       pattern: 像[^。！？\n]{0,24}(?:似的|那样)
@@ -159,11 +174,13 @@ draft:
       pattern: (?:问题在于|这就是|那就是|这不是|那不是)[^。！？\n]{0,24}
       max_per_10k: 5.0
       note: 课堂总结式判断句
+      register: literary,webnovel
     phrases:
     - name: 不是因为
       pattern: 不是因为
       max_per_10k: 2.0
       note: 解释型起手
+      register: webnovel
     - name: 问题不在
       pattern: 问题不在
       max_per_10k: 2.0
@@ -180,6 +197,7 @@ draft:
       pattern: 像是
       max_per_10k: 7.0
       note: 抽象过渡
+      register: literary
     - name: 至少
       pattern: 至少
       max_per_10k: 5.0
@@ -201,6 +219,7 @@ draft:
       pattern: 慢慢
       max_per_10k: 6.0
       note: 推进副词重复会拖慢节奏
+      register: literary
     - name: 有点
       pattern: 有点
       max_per_10k: 5.0
@@ -213,6 +232,7 @@ draft:
       pattern: 越来越
       max_per_10k: 4.0
       note: 趋势句式重复
+      register: literary
     - name: 显得
       pattern: 显得
       max_per_10k: 4.0
@@ -229,32 +249,39 @@ draft:
       pattern: 几乎没有
       max_per_10k: 2.0
       note: 双层弱否定
+      register: literary
     punctuation:
     - name: ！
       pattern: ！
       max_per_10k: 6.0
       note: 感叹号过多会显得用力过猛
+      register: common
     - name: ？
       pattern: ？
       max_per_10k: 10.0
       note: 问号过多会把对话写成盘问
+      register: common
     - name: ……
       pattern: ……
       max_per_10k: 10.0
       note: 省略号容易养成口头禅
+      register: literary,lightnovel
     - name: ——
       pattern: ——
       max_per_10k: 4.0
       note: 破折号太多会拉出解释腔
+      register: literary,lightnovel
     - name: ：
       pattern: ：
       max_per_10k: 18.0
       note: 冒号过多常见于说明式文本
+      register: common
     punctuation_combos:
     - name: ？！/！？
       pattern: (?:？！|！？)
       max_per_10k: 1.5
       note: 强情绪标点组合
+      register: lightnovel
     - name: ！！
       pattern: ！！
       max_per_10k: 1.0

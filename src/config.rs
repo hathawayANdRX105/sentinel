@@ -72,10 +72,13 @@ pub struct RegexRule {
     pub label: Option<String>,
     #[serde(default)]
     pub note: Option<String>,
-    /// 语域标签：`colloquial`（口语体）/ `literary`（文学体）/ `neutral`。
-    /// 来自真语料矩阵校验：文学与轻小说的正常用法在 colloquial 规则上
-    /// 大量误报（鲁迅「不」15 次、「却」7 次）。报告携带此标签，
-    /// 让评审按作品实际语域判读，而不是一律当 AI 腔。
+    /// 语域标签（可逗号组合多个）：`colloquial`（口语）/ `literary`（文学、
+    /// 含散文）/ `classical`（文白古典）/ `lightnovel`（日轻翻译腔）/
+    /// `webnovel`（网文）/ `common`（各人类语域通用）/ `neutral`（无语域倾向）。
+    /// 来自真语料矩阵校验：这些规则的命中在对应语域是人类正常用法，
+    /// 而不是 AI 腔证据（如标点「：」「！」在网文/古典/文学里都高频，
+    /// 而 42 章 AI 草稿零命中）。报告携带此标签，让评审按作品实际语域
+    /// 判读，而不是一律当 AI 味。
     #[serde(default)]
     pub register: Option<String>,
 }
